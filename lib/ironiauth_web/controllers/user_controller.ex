@@ -1,6 +1,5 @@
 defmodule IroniauthWeb.UserController do
   use IroniauthWeb, :controller
-  require IEx
 
   alias Ironiauth.Accounts
   alias Ironiauth.Accounts.User

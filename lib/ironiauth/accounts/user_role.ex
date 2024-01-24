@@ -3,17 +3,15 @@ defmodule Ironiauth.Accounts.UserRole do
   import Ecto.Changeset
 
   schema "user_roles" do
-
-    field :user_id, :id
-    field :role_id, :id
-
+    belongs_to :role, Ironiauth.Accounts.Role
+    belongs_to :user, Ironiauth.Accounts.User
     timestamps()
   end
 
   @doc false
   def changeset(user_role, attrs) do
     user_role
-    |> cast(attrs, [])
+    |> cast(attrs, [:user_id, :role_id])
     |> validate_required([])
   end
 end
