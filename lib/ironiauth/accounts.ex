@@ -7,6 +7,8 @@ defmodule Ironiauth.Accounts do
   alias Ironiauth.Repo
 
   alias Ironiauth.Accounts.User
+  alias Ironiauth.Accounts.UserRole
+  alias Ironiauth.Accounts.Role
   alias Ironiauth.Guardian
   import Comeonin.Bcrypt, only: [checkpw: 2, dummy_checkpw: 0]
 
@@ -71,7 +73,7 @@ defmodule Ironiauth.Accounts do
   """
   def update_user(%User{} = user, attrs) do
     user
-    |> User.changeset(attrs)
+    |> User.update_changeset(attrs)
     |> Repo.update()
   end
 
@@ -111,6 +113,63 @@ defmodule Ironiauth.Accounts do
       _ ->
         {:error, :unauthorized}
     end
+  end
+
+  def get_user_by_uuid(token) do
+    case Ecto.UUID.cast(token) do
+      {:ok, uuid} ->
+        case Repo.get_by(User, uuid: uuid, active: false) do
+          user when not is_nil(user) -> {:ok, user}
+          _ -> {:error, "User not found"}
+        end
+      :error ->
+        {:error, "Invalid token"}
+    end
+  end
+
+  def get_user_by_id_and_uuid(id, uuid) do
+    case Ecto.UUID.cast(uuid) do
+      {:ok, uuid} ->
+        case {:ok, Repo.get_by(User, id: id, uuid: uuid, active: false)} do
+          {:ok, nil} ->
+            {:error, "user not found"}
+          {:ok, result} ->
+            {:ok, result}
+        end
+      :error ->
+        {:error, "user not found"}
+    end
+  end
+
+
+  def create_user_role(attrs \\ %{}) do
+    {:ok, role} = find_role_by_name(attrs[:role_name])
+    %UserRole{}
+    |> UserRole.changeset(Map.put(attrs, :role_id, role.id))
+    |> Repo.insert
+  end
+
+  def find_role_by_name(role_name) do
+    case Repo.get_by(Role, name: role_name) do
+      nil ->
+        {:error, "role not found"}
+      role ->
+        {:ok, role}
+    end
+  end
+
+  def admin?(%User{} = user) do
+    with {:ok, role} <- find_role_by_name(:admin),
+         nil <- Repo.get_by(UserRole, user_id: user.id, role_id: role.id) do
+      false
+    else
+      _ -> true
+    end
+  end
+
+  def role_names(%User{} = user) do
+    user_roles = user |> Repo.preload(:roles)
+    user_roles.roles |> Enum.map(&(&1.name))
   end
 
   defp email_password_auth(email, password) when is_binary(email) and is_binary(password) do
