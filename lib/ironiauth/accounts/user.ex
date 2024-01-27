@@ -19,7 +19,7 @@ defmodule Ironiauth.Accounts.User do
 
   @required_fields_create ~w(username email password password_confirmation)a
   @cast_fields ~w(username email password password_confirmation company_id active)a
-  @update_fields ~w(active company_id)a
+  @update_fields ~w(active username company_id)a
 
   @doc false
   def changeset(user, attrs) do
