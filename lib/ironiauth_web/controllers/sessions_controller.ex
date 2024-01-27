@@ -10,7 +10,9 @@ defmodule IroniauthWeb.SessionsController do
   def create(conn, %{"user" => user_params}) do
     with {:ok, %User{} = user} <- Accounts.create_user(user_params),
           user <- Accounts.get_user!(user.id) do
-      conn |> render("register_url.json", user_uuid: user.uuid)
+      conn
+      |> put_status(:created)
+      |> render("register_url.json", user_uuid: user.uuid)
     end
   end
 
@@ -26,6 +28,7 @@ defmodule IroniauthWeb.SessionsController do
   def sign_out(conn, %{}) do
     token = Guardian.Plug.current_token(conn)
     Guardian.revoke(token)
+    conn = %{conn | assigns: Map.delete(conn.assigns, :current_user)}
     conn
     |> put_status(:ok)
     |> json(%{msg: "logout successfully"})
