@@ -49,6 +49,7 @@ defmodule Ironiauth.MixProject do
       {:comeonin, "~> 4.0"},
       {:bcrypt_elixir, "~> 1.0"},
       {:guardian, "~> 1.0"},
+      {:guardian_db, "~> 2.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
