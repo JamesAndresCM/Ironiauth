@@ -115,10 +115,10 @@ defmodule Ironiauth.Accounts do
     end
   end
 
-  def get_user_by_uuid(token) do
+  def get_user_by_uuid(token, status \\ false) do
     case Ecto.UUID.cast(token) do
       {:ok, uuid} ->
-        case Repo.get_by(User, uuid: uuid, active: false) do
+        case Repo.get_by(User, uuid: uuid, active: status) do
           user when not is_nil(user) -> {:ok, user}
           _ -> {:error, "User not found"}
         end

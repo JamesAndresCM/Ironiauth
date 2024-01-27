@@ -23,6 +23,15 @@ defmodule IroniauthWeb.SessionsController do
     end
   end
 
+  def sign_out(conn, %{}) do
+    token = Guardian.Plug.current_token(conn)
+    Guardian.revoke(token)
+    conn
+    |> put_status(:ok)
+    |> json(%{msg: "logout successfully"})
+    |> halt()
+  end
+
   def select_company(conn, %{"token" => token}) do
     case Accounts.get_user_by_uuid(token) do
       {:error, msg} -> 
