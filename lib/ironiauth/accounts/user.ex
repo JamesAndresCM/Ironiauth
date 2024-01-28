@@ -30,6 +30,7 @@ defmodule Ironiauth.Accounts.User do
     |> validate_length(:password, min: 8) 
     |> unique_constraint(:email)
     |> unique_constraint(:username)
+    |> validate_confirmation(:password, on: [:create])
     |> put_password_hash
   end
 
