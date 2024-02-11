@@ -109,7 +109,9 @@ defmodule Ironiauth.Accounts do
   def token_sign_in(email, password) do
     case email_password_auth(email, password) do
       {:ok, user} ->
-        Guardian.encode_and_sign(user)
+        user = user |> Repo.preload(:company)
+        Guardian.encode_and_sign(user, %{company_uuid: user.company.uuid, user_uuid: user.uuid})
+
       _ ->
         {:error, :unauthorized}
     end
@@ -122,6 +124,7 @@ defmodule Ironiauth.Accounts do
           user when not is_nil(user) -> {:ok, user}
           _ -> {:error, "User not found"}
         end
+
       :error ->
         {:error, "Invalid token"}
     end
@@ -133,26 +136,29 @@ defmodule Ironiauth.Accounts do
         case {:ok, Repo.get_by(User, id: id, uuid: uuid, active: false)} do
           {:ok, nil} ->
             {:error, "user not found"}
+
           {:ok, result} ->
             {:ok, result}
         end
+
       :error ->
         {:error, "user not found"}
     end
   end
 
-
   def create_user_role(attrs \\ %{}) do
     {:ok, role} = find_role_by_name(attrs[:role_name])
+
     %UserRole{}
     |> UserRole.changeset(Map.put(attrs, :role_id, role.id))
-    |> Repo.insert
+    |> Repo.insert()
   end
 
   def find_role_by_name(role_name) do
     case Repo.get_by(Role, name: role_name) do
       nil ->
         {:error, "role not found"}
+
       role ->
         {:ok, role}
     end
@@ -169,7 +175,7 @@ defmodule Ironiauth.Accounts do
 
   def role_names(%User{} = user) do
     user_roles = user |> Repo.preload(:roles)
-    user_roles.roles |> Enum.map(&(&1.name))
+    user_roles.roles |> Enum.map(& &1.name)
   end
 
   defp email_password_auth(email, password) when is_binary(email) and is_binary(password) do
@@ -181,6 +187,7 @@ defmodule Ironiauth.Accounts do
       nil ->
         dummy_checkpw()
         {:error, "Login error."}
+
       user ->
         {:ok, user}
     end
