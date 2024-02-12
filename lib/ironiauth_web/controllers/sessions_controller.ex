@@ -37,6 +37,28 @@ defmodule IroniauthWeb.SessionsController do
     |> halt()
   end
 
+  def refresh_session(conn, %{}) do
+    old_token = Guardian.Plug.current_token(conn)
+    case Guardian.decode_and_verify(old_token) do
+      {:ok, claims} ->
+        case Guardian.resource_from_claims(claims) do
+          {:ok, user} ->
+            {:ok, _old, {new_token, _new_claims}} = Guardian.refresh_token(old_token, user)
+            conn
+            |> put_status(:ok)
+            |> render("jwt.json", jwt: new_token)
+          {:error, _reason} ->
+            conn
+            |> json(%{error: "error to refresh token"})
+            |> halt()
+        end
+      {:error, _reason} ->
+        conn
+        |> json(%{error: "error to refresh token"})
+        |> halt()
+    end
+  end
+
   def select_company(conn, %{"token" => token}) do
     case Accounts.get_user_by_uuid(token) do
       {:error, msg} ->
@@ -59,7 +81,7 @@ defmodule IroniauthWeb.SessionsController do
            Accounts.update_user(user, %{company_id: company.id, active: true}),
          {:ok, _user_role} <- Accounts.create_user_role(%{user_id: user.id, role_name: :user}),
          {:ok, token, _claims} <-
-           Guardian.encode_and_sign(user, %{company_uuid: company.uuid, user_uuid: user.uuid}) do
+           Guardian.create_token(user, %{company_uuid: company.uuid, user_uuid: user.uuid}) do
       conn |> render("jwt.json", jwt: token)
     else
       {:error, msg} ->

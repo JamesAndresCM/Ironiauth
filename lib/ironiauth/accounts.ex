@@ -110,8 +110,7 @@ defmodule Ironiauth.Accounts do
     case email_password_auth(email, password) do
       {:ok, user} ->
         user = user |> Repo.preload(:company)
-        Guardian.encode_and_sign(user, %{company_uuid: user.company.uuid, user_uuid: user.uuid})
-
+        Guardian.create_token(user, %{company_uuid: user.company.uuid, user_uuid: user.uuid})
       _ ->
         {:error, :unauthorized}
     end
