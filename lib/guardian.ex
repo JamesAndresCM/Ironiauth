@@ -1,5 +1,7 @@
 defmodule Ironiauth.Guardian do
   use Guardian, otp_app: :ironiauth
+  @admin_time 90
+  @user_time 10
 
   def subject_for_token(user, _claims) do
     sub = to_string(user.id)
@@ -40,6 +42,22 @@ defmodule Ironiauth.Guardian do
   def on_revoke(claims, token, _options) do
     with {:ok, _} <- Guardian.DB.on_revoke(claims, token) do
       {:ok, claims}
+    end
+  end
+
+  def create_token(user, user_params \\ %{}) do
+    encode_and_sign(user, user_params, expiration_time_for_token(user))
+  end
+
+  def refresh_token(old_token, user) do
+    refresh(old_token, expiration_time_for_token(user))
+  end
+
+  defp expiration_time_for_token(user) do
+    if Ironiauth.Accounts.admin?(user) do
+      [token_options: "admin", ttl: {@admin_time, :day}]
+    else
+      [token_options: "access", ttl: {@user_time, :minute}]
     end
   end
 end
