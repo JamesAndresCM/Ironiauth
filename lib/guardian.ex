@@ -1,7 +1,7 @@
 defmodule Ironiauth.Guardian do
   use Guardian, otp_app: :ironiauth
-  @admin_time 90
-  @user_time 10
+  @admin_time (System.get_env("JWT_EXPIRE_ADMIN") || "90") |> String.to_integer
+  @user_time (System.get_env("JWT_EXPIRE_USER") || "10") |> String.to_integer
 
   def subject_for_token(user, _claims) do
     sub = to_string(user.id)
