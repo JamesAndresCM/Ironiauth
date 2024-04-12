@@ -20,6 +20,8 @@ defmodule IroniauthWeb.Router do
     post "/sign_in", SessionsController, :sign_in
     get "/select_company", SessionsController, :select_company
     put "/associate_company", SessionsController, :associate_company
+    post "/forgot_password", PasswordsController, :forgot_password
+    put "/reset_password/:token", PasswordsController, :reset_password
   end
 
   scope "/api/v1", IroniauthWeb do
