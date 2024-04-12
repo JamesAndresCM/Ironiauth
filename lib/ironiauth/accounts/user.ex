@@ -11,6 +11,8 @@ defmodule Ironiauth.Accounts.User do
     field :password_confirmation, :string, virtual: true
     field :active, :boolean, default: false
     field :uuid, Ecto.UUID
+    field :password_reset_token, :string
+    field :password_reset_sent_at, :naive_datetime
     belongs_to :company, Ironiauth.Management.Company
     has_many :user_roles, Ironiauth.Accounts.UserRole
     has_many :roles, through: [:user_roles, :role]
@@ -19,7 +21,8 @@ defmodule Ironiauth.Accounts.User do
 
   @required_fields_create ~w(username email password password_confirmation)a
   @cast_fields ~w(username email password password_confirmation company_id active)a
-  @update_fields ~w(active username company_id)a
+  @update_fields ~w(active username company_id password_reset_token password_reset_sent_at)a
+  @reset_password_fields ~w(password password_confirmation password_reset_token password_reset_sent_at)a
 
   @doc false
   def changeset(user, attrs) do
@@ -37,6 +40,13 @@ defmodule Ironiauth.Accounts.User do
   def update_changeset(user, attrs \\ %{}) do
     user
     |> cast(attrs, @update_fields, [])
+  end
+
+  def reset_password_changeset(user, attrs \\ %{}) do
+    user
+    |> cast(attrs, @reset_password_fields)
+    |> validate_confirmation(:password)
+    |> put_password_hash
   end
 
 
