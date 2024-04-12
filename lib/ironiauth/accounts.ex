@@ -111,6 +111,7 @@ defmodule Ironiauth.Accounts do
       {:ok, user} ->
         user = user |> Repo.preload(:company)
         Guardian.create_token(user, %{company_uuid: user.company.uuid, user_uuid: user.uuid})
+
       _ ->
         {:error, :unauthorized}
     end
@@ -175,6 +176,42 @@ defmodule Ironiauth.Accounts do
   def role_names(%User{} = user) do
     user_roles = user |> Repo.preload(:roles)
     user_roles.roles |> Enum.map(& &1.name)
+  end
+
+  def get_by_email_active(email) when is_binary(email) do
+    case Repo.get_by(User, email: email, active: true) do
+      nil ->
+        nil
+
+      user ->
+        {:ok, user}
+    end
+  end
+
+  def set_token_on_user(user) do
+    attrs = %{
+      "password_reset_token" => SecureRandom.urlsafe_base64(),
+      "password_reset_sent_at" => NaiveDateTime.utc_now()
+    }
+
+    user
+    |> User.update_changeset(attrs)
+    |> Repo.update!()
+  end
+
+  def update_reset_password_user(%User{} = user, attrs) do
+    user
+    |> User.reset_password_changeset(attrs)
+    |> Repo.update()
+  end
+
+  def valid_token?(token_sent_at) do
+    current_time = NaiveDateTime.utc_now()
+    Time.diff(current_time, token_sent_at) < 7200
+  end
+
+  def get_user_from_token(token) do
+    Repo.get_by(User, password_reset_token: token)
   end
 
   defp email_password_auth(email, password) when is_binary(email) and is_binary(password) do
