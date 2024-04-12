@@ -3,8 +3,10 @@ defmodule IroniauthWeb.CompanyController do
 
   alias Ironiauth.Management
   alias Ironiauth.Management.Company
+  alias IroniauthWeb.Plugs.IsAdmin
 
   action_fallback IroniauthWeb.FallbackController
+  plug IsAdmin when action in [:create, :update, :delete]
 
   def index(conn, _params) do
     companies = Management.list_companies()
