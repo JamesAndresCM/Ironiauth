@@ -6,7 +6,7 @@ defmodule Ironiauth.Management do
   import Ecto.Query, warn: false
   alias Ironiauth.Repo
 
-  alias Ironiauth.Management.Company
+  alias Ironiauth.Management.{Company, Permission}
 
   @doc """
   Returns the list of companies.
@@ -109,5 +109,27 @@ defmodule Ironiauth.Management do
   """
   def change_company(%Company{} = company, attrs \\ %{}) do
     Company.changeset(company, attrs)
+  end
+
+  def create_company_permissions(%Company{} = company, attrs \\ %{}) do
+    attrs = Map.put(attrs, "company_id", company.id)
+
+    %Permission{} |> Permission.changeset(attrs) |> Repo.insert()
+  end
+
+  def get_company_permissions(company_id) do
+    Repo.all(from p in Permission, where: p.company_id == ^company_id)
+  end
+
+  def get_permission(id, company_id), do: Repo.get_by(Permission, [id: id, company_id: company_id])
+
+  def delete_permission(%Permission{} = permission) do
+    Repo.delete(permission)
+  end
+
+  def update_permission(%Permission{} = permission, attrs) do
+    permission
+    |> Permission.changeset(attrs)
+    |> Repo.update()
   end
 end
