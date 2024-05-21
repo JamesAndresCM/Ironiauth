@@ -115,12 +115,8 @@ defmodule IroniauthWeb.SessionsControllerTest do
 
     test "current user authenticated", %{conn: conn} do
       conn = get(conn, "/api/v1/users/me")
-      assert Map.has_key?(json_response(conn, 200), "message") == true
-
-      assert String.contains?(
-               json_response(conn, 200)["message"],
-               conn.assigns.current_user.email
-             )
+      assert json_response(conn, 200)["id"] == conn.assigns.current_user.id
+      assert json_response(conn, 200)["email"] == conn.assigns.current_user.email
     end
   end
 
