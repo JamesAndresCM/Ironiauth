@@ -11,15 +11,18 @@ defmodule IroniauthWeb.CompanyPermissionsController do
 
   defp set_permission(conn, _params) do
     permission_id = conn.params["id"]
-    
+
     permission = Management.get_permission(permission_id, conn.assigns.current_user.company_id)
+
     case permission do
       nil ->
         error_message = %{"errors" => %{"detail" => "Permission not found"}} |> Jason.encode!()
+
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(404, error_message)
         |> halt()
+
       permission ->
         assign(conn, :permission, permission)
     end
@@ -28,15 +31,17 @@ defmodule IroniauthWeb.CompanyPermissionsController do
   def create(conn, %{"permission" => permission_params}) do
     company = Management.get_company!(conn.assigns.current_user.company_id)
 
-    with {:ok, %Permission{} = permission} <- Management.create_company_permissions(company, permission_params) do
-        conn
-        |> put_status(:created)
-        |> render(:show, permission: permission)
+    with {:ok, %Permission{} = permission} <-
+           Management.create_company_permissions(company, permission_params) do
+      conn
+      |> put_status(:created)
+      |> render(:show, permission: permission)
     end
   end
 
   def update(conn, %{"id" => _id, "permission" => permission_params}) do
-    with {:ok, %Permission{} = permission} <- Management.update_permission(conn.assigns.permission, permission_params) do
+    with {:ok, %Permission{} = permission} <-
+           Management.update_permission(conn.assigns.permission, permission_params) do
       conn
       |> put_status(:ok)
       |> render(:show, permission: permission)
