@@ -16,7 +16,7 @@ defmodule IroniauthWeb.UserJSON do
   end
 
   def user(%{user: user}) do
-    %{message: "Your current logged as #{user.email}"}
+    %{id: user.id, email: user.email, roles: Ironiauth.Accounts.role_names(user)}
   end
 
   def detail_user(%{user: user}) do

@@ -7,6 +7,7 @@ defmodule Ironiauth.Management.Company do
     field :domain, :string
     field :uuid, Ecto.UUID
     timestamps()
+    has_many :permissions, Ironiauth.Management.Permission
   end
 
   @doc false

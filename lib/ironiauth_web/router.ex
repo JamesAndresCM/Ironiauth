@@ -35,6 +35,10 @@ defmodule IroniauthWeb.Router do
     delete "/sign_out", SessionsController, :sign_out
     get "/refresh_token", SessionsController, :refresh_session
     resources "/companies", CompanyController, except: [:new, :edit]
+    post "/company_permissions", CompanyPermissionsController, :create
+    get "/company_permissions", CompanyPermissionsController, :index
+    delete "/company_permissions/:id", CompanyPermissionsController, :delete
+    put "/company_permissions/:id", CompanyPermissionsController, :update
   end
 
 
