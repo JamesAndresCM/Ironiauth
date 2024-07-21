@@ -3,8 +3,11 @@ defmodule IroniauthWeb.UserController do
 
   alias Ironiauth.Accounts
   alias Ironiauth.Accounts.User
+  alias IroniauthWeb.Plugs.IsAdmin
 
   action_fallback IroniauthWeb.FallbackController
+  alias Ironiauth.Services.PaginatorService
+  plug IsAdmin when action in [:index, :show]
   plug :is_authorized_user when action in [:update, :delete]
 
   defp is_authorized_user(conn, _params) do
@@ -26,9 +29,17 @@ defmodule IroniauthWeb.UserController do
     end
   end
 
-  def index(conn, _params) do
-    users = Accounts.list_users()
-    render(conn, :index, users: users)
+  def index(conn, params) do
+    users = Accounts.list_users(conn.assigns.current_user.company_id)
+    paginator = users |> PaginatorService.new(users)
+
+    meta_data = %{
+      page_number: paginator.page_number,
+      per_page: paginator.per_page,
+      total_pages: paginator.total_pages,
+      total_elements: paginator.total_elements
+    }
+    render(conn, :index, users: paginator.entries, meta: meta_data)
   end
 
   def show(conn, %{"id" => id}) do
