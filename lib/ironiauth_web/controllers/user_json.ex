@@ -4,8 +4,8 @@ defmodule IroniauthWeb.UserJSON do
   @doc """
   Renders a list of users.
   """
-  def index(%{users: users}) do
-   %{data: for(user <- users, do: data(user))}
+  def index(%{users: users, meta: meta}) do
+   %{data: for(user <- users, do: data(user)), meta: meta}
   end
 
   @doc """

@@ -4,13 +4,22 @@ defmodule IroniauthWeb.CompanyController do
   alias Ironiauth.Management
   alias Ironiauth.Management.Company
   alias IroniauthWeb.Plugs.IsAdmin
+  alias Ironiauth.Services.PaginatorService
 
   action_fallback IroniauthWeb.FallbackController
   plug IsAdmin when action in [:create, :update, :delete]
 
-  def index(conn, _params) do
+  def index(conn, params) do
     companies = Management.list_companies()
-    render(conn, :index, companies: companies)
+    paginator = companies |> PaginatorService.new(params)
+
+    meta_data = %{
+      page_number: paginator.page_number,
+      per_page: paginator.per_page,
+      total_pages: paginator.total_pages,
+      total_elements: paginator.total_elements
+    }
+    render(conn, :index, companies: paginator.entries, meta: meta_data)
   end
 
   def create(conn, %{"company" => company_params}) do

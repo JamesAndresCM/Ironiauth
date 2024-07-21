@@ -1,8 +1,8 @@
 defmodule IroniauthWeb.CompanyPermissionsJSON do
   alias Ironiauth.Management.Permission
 
-  def index(%{permission: permissions}) do
-    %{data: for(permission <- permissions, do: data(permission))}
+  def index(%{permission: permissions, meta: meta}) do
+    %{data: for(permission <- permissions, do: data(permission)), meta: meta}
   end
   
   def show(%{permission: permission}) do

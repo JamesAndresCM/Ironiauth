@@ -21,8 +21,8 @@ defmodule Ironiauth.Accounts do
       [%User{}, ...]
 
   """
-  def list_users do
-    Repo.all(User)
+  def list_users(company_id) do
+    from u in User, where: u.company_id == ^company_id
   end
 
   @doc """

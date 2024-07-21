@@ -4,6 +4,7 @@ defmodule IroniauthWeb.SessionsController do
   alias Ironiauth.Management
   alias Ironiauth.Accounts.User
   alias Ironiauth.Guardian
+  alias Ironiauth.Services.PaginatorService
 
   action_fallback IroniauthWeb.FallbackController
 
@@ -59,14 +60,22 @@ defmodule IroniauthWeb.SessionsController do
     end
   end
 
-  def select_company(conn, %{"token" => token}) do
+  def select_company(conn, %{"token" => token, "params" => params}) do
     case Accounts.get_user_by_uuid(token) do
       {:error, msg} ->
         conn |> json(%{error: msg})
 
       {:ok, user} ->
         companies = Management.list_companies()
-        conn |> render("companies.json", companies: companies, user: user)
+        paginator = companies |> PaginatorService.new(params)
+
+        meta_data = %{
+          page_number: paginator.page_number,
+          per_page: paginator.per_page,
+          total_pages: paginator.total_pages,
+          total_elements: paginator.total_elements
+        }
+        conn |> render("companies.json", user: user, companies: paginator.entries, meta: meta_data)
     end
   end
 

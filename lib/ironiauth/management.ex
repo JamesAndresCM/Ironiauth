@@ -17,8 +17,8 @@ defmodule Ironiauth.Management do
       [%Company{}, ...]
 
   """
-  def list_companies do
-    Repo.all(Company)
+  def list_companies() do
+    from c in Company
   end
 
   @doc """
@@ -118,7 +118,7 @@ defmodule Ironiauth.Management do
   end
 
   def get_company_permissions(company_id) do
-    Repo.all(from p in Permission, where: p.company_id == ^company_id)
+    from p in Permission, where: p.company_id == ^company_id
   end
 
   def get_permission(id, company_id), do: Repo.get_by(Permission, [id: id, company_id: company_id])

@@ -4,8 +4,8 @@ defmodule IroniauthWeb.CompanyJSON do
   @doc """
   Renders a list of companies.
   """
-  def index(%{companies: companies}) do
-    %{data: for(company <- companies, do: data(company))}
+  def index(%{companies: companies, meta: meta}) do
+    %{data: for(company <- companies, do: data(company)), meta: meta}
   end
 
   @doc """

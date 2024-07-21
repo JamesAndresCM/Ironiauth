@@ -1,6 +1,6 @@
 defmodule IroniauthWeb.SessionsControllerTest do
   use IroniauthWeb.ConnCase
-
+require IEx
   import Ironiauth.AccountsFixtures
   import Ironiauth.ManagementFixtures
   alias Ironiauth.Repo
@@ -43,15 +43,18 @@ defmodule IroniauthWeb.SessionsControllerTest do
 
   describe "select company" do
     setup [:create_user]
+    Enum.map(0..10, fn _ ->
+      setup [:create_company]
+    end)
 
     test "signs in a user with valid credentials", %{conn: conn, user: user} do
       user = Repo.get(User, user.id)
-      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid)
+      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid, params: %{page: 2})
       assert json_response(conn, 200)["data"]["user"]["id"] == user.id
     end
 
     test "invalid uuid or nil value", %{conn: conn, user: user} do
-      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid)
+      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid, params: %{})
       assert json_response(conn, 200)["error"] == "Invalid token"
     end
   end

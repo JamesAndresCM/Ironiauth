@@ -4,9 +4,10 @@ defmodule IroniauthWeb.CompanyPermissionsController do
   alias Ironiauth.Management
   alias Ironiauth.Management.Permission
   alias IroniauthWeb.Plugs.IsAdmin
+  alias Ironiauth.Services.PaginatorService
 
   action_fallback IroniauthWeb.FallbackController
-  plug IsAdmin when action in [:create]
+  plug IsAdmin when action in [:create, :index]
   plug :set_permission when action in [:delete, :update]
 
   defp set_permission(conn, _params) do
@@ -48,9 +49,17 @@ defmodule IroniauthWeb.CompanyPermissionsController do
     end
   end
 
-  def index(conn, _params) do
+  def index(conn, params) do
     permissions = Management.get_company_permissions(conn.assigns.current_user.company_id)
-    render(conn, :index, permission: permissions)
+    paginator = permissions |> PaginatorService.new(permissions)
+
+    meta_data = %{
+      page_number: paginator.page_number,
+      per_page: paginator.per_page,
+      total_pages: paginator.total_pages,
+      total_elements: paginator.total_elements
+    }
+    render(conn, :index, permission: paginator.entries, meta: meta_data)
   end
 
   def delete(conn, %{"id" => id}) do
