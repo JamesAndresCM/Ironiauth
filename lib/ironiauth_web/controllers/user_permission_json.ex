@@ -6,3 +6,4 @@ defmodule IroniauthWeb.UserPermissionJSON do
     %{data: user_permission}
   end
 end
+
