@@ -12,6 +12,7 @@ config :ironiauth,
 
 # Configures the endpoint
 config :ironiauth, IroniauthWeb.Endpoint,
+  adapter: Bandit.PhoenixAdapter,
   url: [host: "localhost"],
   render_errors: [
     formats: [json: IroniauthWeb.ErrorJSON],
