@@ -23,7 +23,7 @@ defmodule IroniauthWeb.SessionsJSON do
    end
 
    def companies(%{user: user, companies: companies, meta: meta}) do
-    %{data: %{user: %{id: user.id, uuid: user.uuid}, companies: for(company <- companies, do: data(company)), meta: meta}}
+    %{data: %{user: %{id: user.id, uuid: user.uuid}, companies: for(company <- companies, do: data(company))}, meta: meta}
    end
 
    defp data(company) do

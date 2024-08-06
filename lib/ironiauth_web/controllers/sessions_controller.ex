@@ -60,7 +60,7 @@ defmodule IroniauthWeb.SessionsController do
     end
   end
 
-  def select_company(conn, %{"token" => token, "params" => params}) do
+  def select_company(conn, %{"token" => token} = params) do
     case Accounts.get_user_by_uuid(token) do
       {:error, msg} ->
         conn |> json(%{error: msg})
@@ -77,6 +77,10 @@ defmodule IroniauthWeb.SessionsController do
         }
         conn |> render("companies.json", user: user, companies: paginator.entries, meta: meta_data)
     end
+  end
+
+  def select_company(conn, _params) do
+    conn |> json(%{error: "Missing token"})
   end
 
   def associate_company(conn, %{
