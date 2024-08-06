@@ -16,6 +16,8 @@ defmodule Ironiauth.Application do
       {Phoenix.PubSub, name: Ironiauth.PubSub},
       # Start Finch
       {Finch, name: Ironiauth.Finch},
+
+      {Task.Supervisor, name: Ironiauth.AsyncEmailSupervisor},
       # Start the Endpoint (http/https)
       IroniauthWeb.Endpoint
       # Start a worker by calling: Ironiauth.Worker.start_link(arg)

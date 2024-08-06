@@ -4,8 +4,8 @@ defmodule IroniauthWeb.UserJSON do
   @doc """
   Renders a list of users.
   """
-  def index(%{users: users}) do
-   %{data: for(user <- users, do: data(user))}
+  def index(%{users: users, meta: meta}) do
+   %{data: for(user <- users, do: data(user)), meta: meta}
   end
 
   @doc """
@@ -15,8 +15,12 @@ defmodule IroniauthWeb.UserJSON do
     %{data: data(user)}
   end
 
+  def user_permissions(%{permissions: permissions}) do
+    %{data: permissions}
+  end
+
   def user(%{user: user}) do
-    %{message: "Your current logged as #{user.email}"}
+    %{id: user.id, email: user.email, roles: Ironiauth.Accounts.role_names(user)}
   end
 
   def detail_user(%{user: user}) do

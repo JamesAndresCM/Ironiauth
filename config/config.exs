@@ -42,6 +42,8 @@ config :esbuild,
 # Configure Guardian
 config :ironiauth, Ironiauth.Guardian,
   issuer: "ironiauth",
+  allowed_algos: ["HS512"],
+  verify_issuer: true,
   secret_key: "ISbEpnO29A8IzvP1Dm4lx9xuZCl/4UQHPi2IyHNkN4k1CnWgqPcPGOd4p9NKCrOI"
 
 # Configure tailwind (the version is required)
@@ -63,6 +65,11 @@ config :logger, :console,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+config :guardian, Guardian.DB,
+  repo: Ironiauth.Repo, # Add your repository module
+  schema_name: "guardian_tokens", # default
+  sweep_interval: 60
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

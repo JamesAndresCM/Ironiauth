@@ -11,22 +11,37 @@ defmodule IroniauthWeb.Router do
 
   pipeline :jwt_authenticated do
     plug IroniauthWeb.Plugs.Guardian.AuthPipeline
+    plug IroniauthWeb.Plugs.CurrentUser
   end
 
   scope "/api/v1", IroniauthWeb do
     pipe_through :api
     post "/sign_up", SessionsController, :create
     post "/sign_in", SessionsController, :sign_in
+    get "/select_company", SessionsController, :select_company
+    put "/associate_company", SessionsController, :associate_company
+    post "/forgot_password", PasswordsController, :forgot_password
+    put "/reset_password/:token", PasswordsController, :reset_password
   end
 
   scope "/api/v1", IroniauthWeb do
     pipe_through [:api, :jwt_authenticated]
 
     get "/users/me", UserController, :me
+    get "/users/permissions", UserController, :permissions
     get "/users", UserController, :index
     get "/users/:id", UserController, :show
     put "/users/:id", UserController, :update
     delete "/users/:id", UserController, :delete
+    delete "/sign_out", SessionsController, :sign_out
+    get "/refresh_token", SessionsController, :refresh_session
+    resources "/companies", CompanyController, except: [:new, :edit]
+    post "/company_permissions", CompanyPermissionsController, :create
+    get "/company_permissions", CompanyPermissionsController, :index
+    delete "/company_permissions/:id", CompanyPermissionsController, :delete
+    put "/company_permissions/:id", CompanyPermissionsController, :update
+    post "/users/:id/permissions", UserPermissionController, :create
+    delete "/users/permissions/:id", UserPermissionController, :delete
   end
 
 

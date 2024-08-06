@@ -22,9 +22,47 @@ defmodule IroniauthWeb.FallbackController do
     |> render(:"404")
   end
 
+  def call(conn, {:error, :user_permission}) do
+    conn
+    |> json(%{error: "constraint error when attempting to insert"})
+    |> halt()
+  end
+
   def call(conn, {:error, :unauthorized}) do
     conn
     |> put_status(:unauthorized)
     |> json(%{error: "Login error"})
+  end
+
+  def call(conn, {:ok, user}) do
+    conn
+    |> json(%{msg: "Your password has been reset. Sign in below with your new password."})
+    |> halt()
+  end
+
+  def call(conn, {:ok, :send_passwd_mailer}) do
+    conn
+    |> json(%{msg: "Email sent with password reset instructions"})
+    |> halt()
+  end
+
+  def call(conn, {:error, :user_not_found}) do
+    conn
+    |> put_status(:not_found)
+    |> json(%{error: "User not found."})
+  end
+
+  def call(conn, {:error, :reset_token_expired}) do
+    handle_error(conn, "Reset token expired - request a new one")
+  end
+
+  def call(conn, {:error, :password_reset_failed}) do
+    handle_error(conn, "Failed to reset password.")
+  end
+
+  defp handle_error(conn, message) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{error: message})
   end
 end
