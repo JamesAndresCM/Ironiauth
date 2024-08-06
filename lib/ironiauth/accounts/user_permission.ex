@@ -3,17 +3,17 @@ defmodule Ironiauth.Accounts.UserPermission do
   import Ecto.Changeset
 
   schema "user_permissions" do
-
-    field :user_id, :id
-    field :permission_id, :id
+    belongs_to :user, Ironiauth.Accounts.User
+    belongs_to :permission, Ironiauth.Management.Permission
 
     timestamps()
   end
 
+  @required_fields ~w(user_id permission_id)a
   @doc false
   def changeset(user_permission, attrs) do
     user_permission
-    |> cast(attrs, [])
-    |> validate_required([])
+    |> cast(attrs, @required_fields)
+    |> validate_required(@required_fields)
   end
 end

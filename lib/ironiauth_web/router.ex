@@ -28,6 +28,7 @@ defmodule IroniauthWeb.Router do
     pipe_through [:api, :jwt_authenticated]
 
     get "/users/me", UserController, :me
+    get "/users/permissions", UserController, :permissions
     get "/users", UserController, :index
     get "/users/:id", UserController, :show
     put "/users/:id", UserController, :update
@@ -39,6 +40,8 @@ defmodule IroniauthWeb.Router do
     get "/company_permissions", CompanyPermissionsController, :index
     delete "/company_permissions/:id", CompanyPermissionsController, :delete
     put "/company_permissions/:id", CompanyPermissionsController, :update
+    post "/users/:id/permissions", UserPermissionController, :create
+    delete "/users/permissions/:id", UserPermissionController, :delete
   end
 
 

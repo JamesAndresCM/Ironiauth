@@ -22,6 +22,12 @@ defmodule IroniauthWeb.FallbackController do
     |> render(:"404")
   end
 
+  def call(conn, {:error, :user_permission}) do
+    conn
+    |> json(%{error: "constraint error when attempting to insert"})
+    |> halt()
+  end
+
   def call(conn, {:error, :unauthorized}) do
     conn
     |> put_status(:unauthorized)
