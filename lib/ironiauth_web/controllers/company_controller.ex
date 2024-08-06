@@ -8,6 +8,20 @@ defmodule IroniauthWeb.CompanyController do
 
   action_fallback IroniauthWeb.FallbackController
   plug IsAdmin when action in [:create, :update, :delete]
+  plug :set_company when action in [:show, :delete, :update]
+
+  defp set_company(conn, _params) do
+    company_id = conn.params["id"]
+
+    try do
+      assign(conn, :company, Management.get_company!(company_id))
+    rescue
+      _ ->
+        conn
+        |> json(%{error: "Company not found"})
+        |> halt()     
+    end
+  end
 
   def index(conn, params) do
     companies = Management.list_companies()
@@ -31,23 +45,18 @@ defmodule IroniauthWeb.CompanyController do
     end
   end
 
-  def show(conn, %{"id" => id}) do
-    company = Management.get_company!(id)
-    render(conn, :show, company: company)
+  def show(conn, _params) do
+    render(conn, :show, company: conn.assigns.company)
   end
 
   def update(conn, %{"id" => id, "company" => company_params}) do
-    company = Management.get_company!(id)
-
-    with {:ok, %Company{} = company} <- Management.update_company(company, company_params) do
+    with {:ok, %Company{} = company} <- Management.update_company(conn.assigns.company, company_params) do
       render(conn, :show, company: company)
     end
   end
 
   def delete(conn, %{"id" => id}) do
-    company = Management.get_company!(id)
-
-    with {:ok, %Company{}} <- Management.delete_company(company) do
+    with {:ok, %Company{}} <- Management.delete_company(conn.assigns.company) do
       send_resp(conn, :no_content, "")
     end
   end

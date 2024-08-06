@@ -15,6 +15,10 @@ defmodule IroniauthWeb.UserJSON do
     %{data: data(user)}
   end
 
+  def user_permissions(%{permissions: permissions}) do
+    %{data: permissions}
+  end
+
   def user(%{user: user}) do
     %{id: user.id, email: user.email, roles: Ironiauth.Accounts.role_names(user)}
   end

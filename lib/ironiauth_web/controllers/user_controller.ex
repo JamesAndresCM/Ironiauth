@@ -4,11 +4,26 @@ defmodule IroniauthWeb.UserController do
   alias Ironiauth.Accounts
   alias Ironiauth.Accounts.User
   alias IroniauthWeb.Plugs.IsAdmin
+  alias Ironiauth.Management
 
   action_fallback IroniauthWeb.FallbackController
   alias Ironiauth.Services.PaginatorService
-  plug IsAdmin when action in [:index, :show]
-  plug :is_authorized_user when action in [:update, :delete]
+  plug IsAdmin when action in [:index, :show, :delete]
+  plug :is_authorized_user when action in [:update]
+  plug :set_user when action in [:delete, :show]
+
+  defp set_user(conn, _params) do
+    user_id = conn.params["id"]
+
+    try do
+      assign(conn, :user, Accounts.get_user!(user_id))
+    rescue
+      _ ->
+        conn
+        |> json(%{error: "User not found"})
+        |> halt()     
+    end
+  end
 
   defp is_authorized_user(conn, _params) do
     user_id = conn.params["id"]
@@ -43,12 +58,16 @@ defmodule IroniauthWeb.UserController do
   end
 
   def show(conn, %{"id" => id}) do
-    user = Accounts.get_user!(id)
-    render(conn, :show, user: user)
+    render(conn, :show, user: conn.assigns.user)
   end
 
   def me(conn, _params) do
     conn |> render("user.json", user: conn.assigns.current_user)
+  end
+
+  def permissions(conn, _params) do
+    data = Management.get_user_permissions(conn.assigns.current_user.id)
+    render(conn, :user_permissions, permissions: data)
   end
 
   def update(conn, %{"id" => id, "user" => user_params}) do
@@ -58,9 +77,7 @@ defmodule IroniauthWeb.UserController do
   end
 
   def delete(conn, %{"id" => id}) do
-    user = Accounts.get_user!(id)
-
-    with {:ok, %User{}} <- Accounts.delete_user(user) do
+    with {:ok, %User{}} <- Accounts.delete_user(conn.assigns.user) do
       send_resp(conn, :no_content, "")
     end
   end

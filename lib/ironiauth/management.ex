@@ -7,6 +7,7 @@ defmodule Ironiauth.Management do
   alias Ironiauth.Repo
 
   alias Ironiauth.Management.{Company, Permission}
+  alias Ironiauth.Accounts.{User, UserPermission}
 
   @doc """
   Returns the list of companies.
@@ -62,6 +63,63 @@ defmodule Ironiauth.Management do
     %Company{}
     |> Company.changeset(attrs)
     |> Repo.insert()
+  end
+
+  def create_user_permission(attrs \\ %{}) do
+    %UserPermission{}
+    |> UserPermission.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def delete_user_permission(%UserPermission{} = user_permission) do
+    Repo.delete(user_permission)
+  end
+
+  def show_user_permission(id) do
+    query = from up in UserPermission,
+            join: u in User, on: up.user_id == u.id,
+            join: p in Permission, on: up.permission_id == p.id,
+            join: c in Company, on: p.id == c.id, where: up.id == ^id,
+            select: %{
+              id: up.id,
+              user: %{
+                id: u.id,
+                email: u.email
+              },
+              permission: %{
+                name: p.name,
+                description: p.description,
+                company: %{
+                  name: c.name,
+                  domain: c.domain
+                }
+              }
+            }
+    Repo.one(query)
+  end
+
+  def get_user_permissions(user_id) do
+    query = from up in UserPermission,
+            join: p in Permission, on: up.permission_id == p.id,
+            join: c in Company, on: c.id == p.company_id,
+            where: up.user_id == ^user_id,
+            select: %{
+              permission: %{
+                name: p.name,
+                description: p.description,
+                company: %{
+                  name: c.name,
+                  domain: c.domain
+                }
+              }
+            }
+    Repo.all(query)
+  end
+
+  def get_permission!(id), do: Repo.get!(UserPermission, id)
+
+  def delete_user_permission(%UserPermission{} = user_permission) do
+    Repo.delete(user_permission)
   end
 
   @doc """

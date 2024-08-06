@@ -15,6 +15,8 @@ defmodule Ironiauth.Accounts.User do
     field :password_reset_sent_at, :naive_datetime
     belongs_to :company, Ironiauth.Management.Company
     has_many :user_roles, Ironiauth.Accounts.UserRole
+    has_many :user_permissions, Ironiauth.Accounts.UserPermission
+    has_many :permissions, through: [:user_permissions, :permission]
     has_many :roles, through: [:user_roles, :role]
     timestamps()
   end
