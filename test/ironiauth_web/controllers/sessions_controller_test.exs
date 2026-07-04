@@ -1,13 +1,11 @@
 defmodule IroniauthWeb.SessionsControllerTest do
   use IroniauthWeb.ConnCase
-require IEx
+
   import Ironiauth.AccountsFixtures
   import Ironiauth.ManagementFixtures
-  alias Ironiauth.Repo
-  alias Ironiauth.Guardian
 
-  alias Ironiauth.Accounts.User
-  alias Ironiauth.Management.Company
+  alias Ironiauth.Accounts
+  alias Ironiauth.Guardian
 
   @create_attrs %{
     username: "nameless",
@@ -28,108 +26,105 @@ require IEx
   end
 
   describe "create user" do
-    test "renders register user link when data is valid", %{conn: conn} do
-      conn = post(conn, ~p"/api/v1/sign_up", user: @create_attrs)
-      assert %{"register_url" => register_url} = json_response(conn, 201)
-      assert String.contains?(register_url, "select_company")
+    setup [:create_company, :create_roles]
+
+    test "returns jwt when data is valid", %{conn: conn, company: company} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer " <> company.api_key)
+        |> post(~p"/api/v1/sign_up", user: @create_attrs)
+
+      assert %{"jwt" => jwt} = json_response(conn, 201)
+      assert jwt != nil
     end
 
-    test "renders password are not equals", %{conn: conn} do
-      conn = post(conn, ~p"/api/v1/sign_up", user: @invalid_attrs)
+    test "renders error when passwords don't match", %{conn: conn, company: company} do
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer " <> company.api_key)
+        |> post(~p"/api/v1/sign_up", user: @invalid_attrs)
+
       assert %{"errors" => errors} = json_response(conn, 422)
       assert List.first(errors["password_confirmation"]) == "does not match confirmation"
     end
-  end
 
-  describe "select company" do
-    setup [:create_user]
-    Enum.map(0..10, fn _ ->
-      setup [:create_company]
-    end)
+    test "rejects duplicate email within same company", %{conn: conn, company: company} do
+      conn
+      |> put_req_header("authorization", "Bearer " <> company.api_key)
+      |> post(~p"/api/v1/sign_up", user: @create_attrs)
 
-    test "signs in a user with valid credentials", %{conn: conn, user: user} do
-      user = Repo.get(User, user.id)
-      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid, params: %{page: 2})
-      assert json_response(conn, 200)["data"]["user"]["id"] == user.id
-    end
+      conn2 =
+        build_conn()
+        |> put_req_header("accept", "application/json")
+        |> put_req_header("authorization", "Bearer " <> company.api_key)
+        |> post(~p"/api/v1/sign_up", user: @create_attrs)
 
-    test "invalid uuid or nil value", %{conn: conn, user: user} do
-      conn = get(conn, ~p"/api/v1/select_company", token: user.uuid, params: %{})
-      assert json_response(conn, 200)["error"] == "Invalid token"
-    end
-  end
-
-  describe "complete user register" do
-    setup [:create_user]
-    setup [:create_company]
-    setup [:create_roles]
-
-    test "associate company with user and return jwt", %{conn: conn, user: user, company: company} do
-      user = Repo.get(User, user.id)
-      company = Repo.get(Company, company.id)
-
-      conn =
-        put(conn, ~p"/api/v1/associate_company",
-          user_id: user.id,
-          user_uuid: user.uuid,
-          company_uuid: company.uuid
-        )
-
-      assert Map.has_key?(json_response(conn, 200), "jwt") &&
-               json_response(conn, 200)["jwt"] != nil
-
-      user = Repo.get(User, user.id) |> Repo.preload(:roles)
-      assert user.active == true
-      assert user.company_id == company.id
-      assert List.first(user.roles).name == :user
+      assert %{"errors" => %{"email" => _}} = json_response(conn2, 422)
     end
   end
 
   describe "sign in" do
-    setup [:create_user]
-    setup [:create_company]
-    setup [:create_roles]
+    setup [:create_company, :create_roles]
 
-    test "login user successfully", %{conn: conn, user: user, company: company} do
-      user = Repo.get(User, user.id)
-      Ironiauth.Accounts.update_user(user, %{company_id: company.id, active: true})
-      conn = post(conn, ~p"/api/v1/sign_in", email: user.email, password: "password_hash")
+    test "login user successfully", %{conn: conn, company: company} do
+      {:ok, _user} = Accounts.create_user_for_company(@create_attrs, company)
 
-      assert Map.has_key?(json_response(conn, 200), "jwt") &&
-               json_response(conn, 200)["jwt"] != nil
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer " <> company.api_key)
+        |> post(~p"/api/v1/sign_in", email: @create_attrs.email, password: @create_attrs.password)
+
+      assert %{"jwt" => jwt} = json_response(conn, 200)
+      assert jwt != nil
     end
 
-    test "error login password", %{conn: conn, user: user, company: company} do
-      user = Repo.get(User, user.id)
-      Ironiauth.Accounts.update_user(user, %{company_id: company.id, active: true})
-      conn = post(conn, ~p"/api/v1/sign_in", email: user.email, password: "password")
+    test "error with wrong password", %{conn: conn, company: company} do
+      {:ok, _user} = Accounts.create_user_for_company(@create_attrs, company)
+
+      conn =
+        conn
+        |> put_req_header("authorization", "Bearer " <> company.api_key)
+        |> post(~p"/api/v1/sign_in", email: @create_attrs.email, password: "wrong_password")
+
       assert json_response(conn, 401)["error"] == "Login error"
     end
   end
 
   describe "authenticated endpoint" do
-    setup [:create_user]
-    setup [:create_company]
-    setup [:create_roles]
+    setup [:create_company, :create_roles]
 
-    setup %{conn: conn, user: user, company: company} do
-      authenticated_user(user, company, conn)
+    setup %{conn: conn, company: company} do
+      attrs = %{
+        username: unique_user_username(),
+        email: unique_user_email(),
+        password: "password_hash",
+        password_confirmation: "password_hash"
+      }
+
+      {:ok, user} = Accounts.create_user_for_company(attrs, company)
+      {:ok, conn: authenticated_conn(conn, user, company), user: user}
     end
 
-    test "current user authenticated", %{conn: conn} do
+    test "current user authenticated", %{conn: conn, user: user} do
       conn = get(conn, "/api/v1/users/me")
-      assert json_response(conn, 200)["id"] == conn.assigns.current_user.id
-      assert json_response(conn, 200)["email"] == conn.assigns.current_user.email
+      assert json_response(conn, 200)["id"] == user.id
+      assert json_response(conn, 200)["email"] == user.email
     end
   end
 
   describe "logout" do
-    setup [:create_user]
-    setup [:create_company]
-    setup [:create_roles]
+    setup [:create_company, :create_roles]
 
-    setup %{conn: conn, user: user, company: company} do
-      authenticated_user(user, company, conn)
+    setup %{conn: conn, company: company} do
+      attrs = %{
+        username: unique_user_username(),
+        email: unique_user_email(),
+        password: "password_hash",
+        password_confirmation: "password_hash"
+      }
+
+      {:ok, user} = Accounts.create_user_for_company(attrs, company)
+      {:ok, conn: authenticated_conn(conn, user, company)}
     end
 
     test "logout current user", %{conn: conn} do
@@ -140,29 +135,20 @@ require IEx
     end
   end
 
-  defp create_user(_) do
-    user = user_fixture()
-    %{user: user}
+  defp authenticated_conn(conn, user, company) do
+    {:ok, jwt, _} =
+      Guardian.create_token(user, %{company_uuid: company.uuid, user_uuid: user.uuid})
+
+    conn
+    |> put_req_header("accept", "application/json")
+    |> put_req_header("authorization", "Bearer " <> jwt)
   end
 
   defp create_company(_) do
-    company = company_fixture()
-    %{company: company}
+    %{company: company_fixture()}
   end
 
   defp create_roles(_) do
     create_default_roles()
-  end
-
-  defp authenticated_user(user, company, conn) do
-    Ironiauth.Accounts.update_user(user, %{company_id: company.id, active: true})
-    {:ok, jwt, _} = Guardian.encode_and_sign(user)
-
-    conn =
-      conn
-      |> put_req_header("accept", "application/json")
-      |> put_req_header("authorization", "bearer: " <> jwt)
-
-    {:ok, conn: conn}
   end
 end

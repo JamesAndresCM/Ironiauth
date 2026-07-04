@@ -48,8 +48,8 @@ defmodule Ironiauth.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:comeonin, "~> 4.0"},
       {:bcrypt_elixir, "~> 1.0"},
-      {:guardian, "~> 1.0"},
-      {:guardian_db, "~> 2.0"},
+      {:guardian, "~> 2.0"},
+      {:guardian_db, "~> 3.0"},
       {:secure_random, "~> 0.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]

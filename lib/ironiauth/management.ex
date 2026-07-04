@@ -6,172 +6,58 @@ defmodule Ironiauth.Management do
   import Ecto.Query, warn: false
   alias Ironiauth.Repo
 
-  alias Ironiauth.Management.{Company, Permission}
-  alias Ironiauth.Accounts.{User, UserPermission}
+  alias Ironiauth.Management.{Company, Permission, Group, GroupPermission}
+  alias Ironiauth.Accounts.UserGroup
 
-  @doc """
-  Returns the list of companies.
-
-  ## Examples
-
-      iex> list_companies()
-      [%Company{}, ...]
-
-  """
   def list_companies() do
     from c in Company
   end
 
-  @doc """
-  Gets a single company.
-
-  Raises `Ecto.NoResultsError` if the Company does not exist.
-
-  ## Examples
-
-      iex> get_company!(123)
-      %Company{}
-
-      iex> get_company!(456)
-      ** (Ecto.NoResultsError)
-
-  """
   def get_company!(id), do: Repo.get!(Company, id)
 
   def get_company_by_uuid(uuid) do
     case Ecto.UUID.cast(uuid) do
       {:ok, uuid} ->
-        {:ok , Repo.get_by(Company, uuid: uuid)}
+        case Repo.get_by(Company, uuid: uuid) do
+          nil -> {:error, "Company not found"}
+          company -> {:ok, company}
+        end
       :error ->
         {:error, "Company not found"}
     end
   end
 
-  @doc """
-  Creates a company.
+  def get_company_by_api_key(api_key) do
+    case Repo.get_by(Company, api_key: api_key) do
+      nil -> {:error, "Invalid API key"}
+      company -> {:ok, company}
+    end
+  end
 
-  ## Examples
-
-      iex> create_company(%{field: value})
-      {:ok, %Company{}}
-
-      iex> create_company(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
   def create_company(attrs \\ %{}) do
     %Company{}
     |> Company.changeset(attrs)
     |> Repo.insert()
   end
 
-  def create_user_permission(attrs \\ %{}) do
-    %UserPermission{}
-    |> UserPermission.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def delete_user_permission(%UserPermission{} = user_permission) do
-    Repo.delete(user_permission)
-  end
-
-  def show_user_permission(id) do
-    query = from up in UserPermission,
-            join: u in User, on: up.user_id == u.id,
-            join: p in Permission, on: up.permission_id == p.id,
-            join: c in Company, on: p.id == c.id, where: up.id == ^id,
-            select: %{
-              id: up.id,
-              user: %{
-                id: u.id,
-                email: u.email
-              },
-              permission: %{
-                name: p.name,
-                description: p.description,
-                company: %{
-                  name: c.name,
-                  domain: c.domain
-                }
-              }
-            }
-    Repo.one(query)
-  end
-
-  def get_user_permissions(user_id) do
-    query = from up in UserPermission,
-            join: p in Permission, on: up.permission_id == p.id,
-            join: c in Company, on: c.id == p.company_id,
-            where: up.user_id == ^user_id,
-            select: %{
-              permission: %{
-                name: p.name,
-                description: p.description,
-                company: %{
-                  name: c.name,
-                  domain: c.domain
-                }
-              }
-            }
-    Repo.all(query)
-  end
-
-  def get_permission!(id), do: Repo.get!(UserPermission, id)
-
-  def delete_user_permission(%UserPermission{} = user_permission) do
-    Repo.delete(user_permission)
-  end
-
-  @doc """
-  Updates a company.
-
-  ## Examples
-
-      iex> update_company(company, %{field: new_value})
-      {:ok, %Company{}}
-
-      iex> update_company(company, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
-  """
   def update_company(%Company{} = company, attrs) do
     company
     |> Company.changeset(attrs)
     |> Repo.update()
   end
 
-  @doc """
-  Deletes a company.
-
-  ## Examples
-
-      iex> delete_company(company)
-      {:ok, %Company{}}
-
-      iex> delete_company(company)
-      {:error, %Ecto.Changeset{}}
-
-  """
   def delete_company(%Company{} = company) do
     Repo.delete(company)
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking company changes.
-
-  ## Examples
-
-      iex> change_company(company)
-      %Ecto.Changeset{data: %Company{}}
-
-  """
   def change_company(%Company{} = company, attrs \\ %{}) do
     Company.changeset(company, attrs)
   end
 
+  # Permissions
+
   def create_company_permissions(%Company{} = company, attrs \\ %{}) do
     attrs = Map.put(attrs, "company_id", company.id)
-
     %Permission{} |> Permission.changeset(attrs) |> Repo.insert()
   end
 
@@ -179,7 +65,9 @@ defmodule Ironiauth.Management do
     from p in Permission, where: p.company_id == ^company_id
   end
 
-  def get_permission(id, company_id), do: Repo.get_by(Permission, [id: id, company_id: company_id])
+  def get_permission(id, company_id), do: Repo.get_by(Permission, id: id, company_id: company_id)
+
+  def get_permission!(id), do: Repo.get!(Permission, id)
 
   def delete_permission(%Permission{} = permission) do
     Repo.delete(permission)
@@ -189,5 +77,65 @@ defmodule Ironiauth.Management do
     permission
     |> Permission.changeset(attrs)
     |> Repo.update()
+  end
+
+  # Groups
+
+  def list_groups(company_id) do
+    from(g in Group, where: g.company_id == ^company_id)
+    |> Repo.all()
+  end
+
+  def get_group!(id), do: Repo.get!(Group, id)
+
+  def create_group(attrs \\ %{}) do
+    %Group{}
+    |> Group.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def delete_group(%Group{} = group) do
+    Repo.delete(group)
+  end
+
+  # Group permissions
+
+  def add_permission_to_group(attrs) do
+    %GroupPermission{}
+    |> GroupPermission.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def remove_permission_from_group(group_id, permission_id) do
+    case Repo.get_by(GroupPermission, group_id: group_id, permission_id: permission_id) do
+      nil -> {:error, :not_found}
+      gp -> Repo.delete(gp)
+    end
+  end
+
+  # User groups
+
+  def add_user_to_group(attrs) do
+    %UserGroup{}
+    |> UserGroup.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def remove_user_from_group(group_id, user_id) do
+    case Repo.get_by(UserGroup, group_id: group_id, user_id: user_id) do
+      nil -> {:error, :not_found}
+      ug -> Repo.delete(ug)
+    end
+  end
+
+  def get_user_permissions(user_id, company_id) do
+    from(p in Permission,
+      join: gp in GroupPermission, on: gp.permission_id == p.id,
+      join: g in Group, on: gp.group_id == g.id,
+      join: ug in UserGroup, on: ug.group_id == g.id,
+      where: ug.user_id == ^user_id and g.company_id == ^company_id,
+      select: p.name,
+      distinct: true)
+    |> Repo.all()
   end
 end

@@ -5,8 +5,9 @@ defmodule IroniauthWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/api", IroniauthWeb do
+  scope "/", IroniauthWeb do
     pipe_through :api
+    get "/", RootController, :index
   end
 
   pipeline :jwt_authenticated do
@@ -14,14 +15,29 @@ defmodule IroniauthWeb.Router do
     plug IroniauthWeb.Plugs.CurrentUser
   end
 
+  pipeline :api_key_authenticated do
+    plug IroniauthWeb.Plugs.ApiKeyAuth
+  end
+
+  # JWKS — clave pública para que las apps cliente validen JWTs RS256
+  scope "/.well-known", IroniauthWeb do
+    pipe_through :api
+    get "/jwks.json", JwksController, :index
+  end
+
+  # Sin autenticación — reset_password usa el token del email para identificar al user
   scope "/api/v1", IroniauthWeb do
     pipe_through :api
+    put "/reset_password/:token", PasswordsController, :reset_password
+  end
+
+  # Endpoints que requieren api_key (llamados desde el backend de cada app)
+  # forgot_password necesita api_key para saber a qué company pertenece el email
+  scope "/api/v1", IroniauthWeb do
+    pipe_through [:api, :api_key_authenticated]
     post "/sign_up", SessionsController, :create
     post "/sign_in", SessionsController, :sign_in
-    get "/select_company", SessionsController, :select_company
-    put "/associate_company", SessionsController, :associate_company
     post "/forgot_password", PasswordsController, :forgot_password
-    put "/reset_password/:token", PasswordsController, :reset_password
   end
 
   scope "/api/v1", IroniauthWeb do
@@ -40,10 +56,21 @@ defmodule IroniauthWeb.Router do
     get "/company_permissions", CompanyPermissionsController, :index
     delete "/company_permissions/:id", CompanyPermissionsController, :delete
     put "/company_permissions/:id", CompanyPermissionsController, :update
-    post "/users/:id/permissions", UserPermissionController, :create
-    delete "/users/permissions/:id", UserPermissionController, :delete
+    get "/groups", GroupController, :index
+    post "/groups", GroupController, :create
+    delete "/groups/:id", GroupController, :delete
+    post "/groups/:group_id/permissions/:permission_id", GroupController, :add_permission
+    delete "/groups/:group_id/permissions/:permission_id", GroupController, :remove_permission
+    post "/groups/:group_id/users/:user_id", GroupController, :add_user
+    delete "/groups/:group_id/users/:user_id", GroupController, :remove_user
   end
 
+
+  # Catch-all — debe ir al final, después de todas las rutas definidas
+  scope "/", IroniauthWeb do
+    pipe_through :api
+    match :*, "/*path", RootController, :not_found
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:ironiauth, :dev_routes) do

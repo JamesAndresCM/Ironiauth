@@ -4,12 +4,7 @@ defmodule Ironiauth.Guardian do
   @user_time (System.get_env("JWT_EXPIRE_USER") || "10") |> String.to_integer
 
   def subject_for_token(user, _claims) do
-    sub = to_string(user.id)
-    {:ok, sub}
-  end
-  
-  def subject_for_token(_, _) do
-    {:error, :reason_for_error}
+    {:ok, to_string(user.id)}
   end
   
   def resource_from_claims(%{"sub" => id}) do
