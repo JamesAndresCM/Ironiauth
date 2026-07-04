@@ -4,7 +4,6 @@ defmodule IroniauthWeb.UserController do
   alias Ironiauth.Accounts
   alias Ironiauth.Accounts.User
   alias IroniauthWeb.Plugs.IsAdmin
-  alias Ironiauth.Management
 
   action_fallback IroniauthWeb.FallbackController
   alias Ironiauth.Services.PaginatorService
@@ -37,7 +36,7 @@ defmodule IroniauthWeb.UserController do
           |> halt()
         end
     else
-      {:error, msg} ->
+      {:error, _msg} ->
         conn
         |> json(%{error: "resource not permitted"})
         |> halt()
@@ -45,8 +44,9 @@ defmodule IroniauthWeb.UserController do
   end
 
   def index(conn, params) do
-    users = Accounts.list_users(conn.assigns.current_user.company_id)
-    paginator = users |> PaginatorService.new(users)
+    company = conn.assigns.current_company
+    users = Accounts.list_users(company.uuid)
+    paginator = users |> PaginatorService.new(params)
 
     meta_data = %{
       page_number: paginator.page_number,
@@ -57,7 +57,7 @@ defmodule IroniauthWeb.UserController do
     render(conn, :index, users: paginator.entries, meta: meta_data)
   end
 
-  def show(conn, %{"id" => id}) do
+  def show(conn, %{"id" => _id}) do
     render(conn, :show, user: conn.assigns.user)
   end
 
@@ -66,19 +66,23 @@ defmodule IroniauthWeb.UserController do
   end
 
   def permissions(conn, _params) do
-    data = Management.get_user_permissions(conn.assigns.current_user.id)
-    render(conn, :user_permissions, permissions: data)
+    user = conn.assigns.current_user
+    company = conn.assigns.current_company
+
+    {:ok, permissions} = Accounts.get_permissions_by_user_uuid(user.uuid, company.id)
+    render(conn, :user_permissions, permissions: permissions)
   end
 
-  def update(conn, %{"id" => id, "user" => user_params}) do
+  def update(conn, %{"id" => _id, "user" => user_params}) do
     with {:ok, %User{} = user} <- Accounts.update_user(conn.assigns.current_user, user_params) do
       render(conn, :show, user: user)
     end
   end
 
-  def delete(conn, %{"id" => id}) do
+  def delete(conn, %{"id" => _id}) do
     with {:ok, %User{}} <- Accounts.delete_user(conn.assigns.user) do
       send_resp(conn, :no_content, "")
     end
   end
+
 end
