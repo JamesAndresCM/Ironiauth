@@ -8,6 +8,7 @@ defmodule Ironiauth.Accounts do
 
   alias Ironiauth.Accounts.User
   alias Ironiauth.Accounts.UserRole
+  alias Ironiauth.Accounts.Membership
   alias Ironiauth.Accounts.Role
   alias Ironiauth.Guardian
   import Comeonin.Bcrypt, only: [checkpw: 2, dummy_checkpw: 0]
@@ -21,8 +22,11 @@ defmodule Ironiauth.Accounts do
       [%User{}, ...]
 
   """
-  def list_users(company_id) do
-    from u in User, where: u.company_id == ^company_id
+  def list_users(company_uuid) do
+    from u in User,
+      join: m in Membership, on: m.user_id == u.id,
+      join: c in Ironiauth.Management.Company, on: m.company_id == c.id,
+      where: c.uuid == ^company_uuid
   end
 
   @doc """
@@ -106,15 +110,30 @@ defmodule Ironiauth.Accounts do
     User.changeset(user, attrs)
   end
 
-  def token_sign_in(email, password) do
+  def token_sign_in(email, password, company_uuid) do
     case email_password_auth(email, password) do
       {:ok, user} ->
-        user = user |> Repo.preload(:company)
-        Guardian.create_token(user, %{company_uuid: user.company.uuid, user_uuid: user.uuid})
+        query =
+          from m in Membership,
+            join: c in Ironiauth.Management.Company, on: m.company_id == c.id,
+            where: m.user_id == ^user.id and c.uuid == ^company_uuid,
+            select: c
+
+        case Repo.one(query) do
+          nil -> {:error, :unauthorized}
+          company ->
+            Guardian.create_token(user, %{company_uuid: company.uuid, user_uuid: user.uuid})
+        end
 
       _ ->
         {:error, :unauthorized}
     end
+  end
+
+  def create_membership(attrs \\ %{}) do
+    %Membership{}
+    |> Membership.changeset(attrs)
+    |> Repo.insert()
   end
 
   def get_user_by_uuid(token, status \\ false) do
@@ -166,10 +185,19 @@ defmodule Ironiauth.Accounts do
 
   def admin?(%User{} = user) do
     with {:ok, role} <- find_role_by_name(:admin),
-         nil <- Repo.get_by(UserRole, user_id: user.id, role_id: role.id) do
-      false
+         %UserRole{} <- Repo.get_by(UserRole, user_id: user.id, role_id: role.id) do
+      true
     else
-      _ -> true
+      _ -> false
+    end
+  end
+
+  def superadmin?(%User{} = user) do
+    with {:ok, role} <- find_role_by_name(:superadmin),
+         %UserRole{} <- Repo.get_by(UserRole, user_id: user.id, role_id: role.id) do
+      true
+    else
+      _ -> false
     end
   end
 
@@ -207,15 +235,29 @@ defmodule Ironiauth.Accounts do
 
   def valid_token?(token_sent_at) do
     current_time = NaiveDateTime.utc_now()
-    Time.diff(current_time, token_sent_at) < 7200
+    NaiveDateTime.diff(current_time, token_sent_at) < 7200
   end
 
   def get_user_from_token(token) do
     Repo.get_by(User, password_reset_token: token)
   end
 
-  def get_user_by_id_and_company_id!(user_id, company_id) do
-    Repo.get_by!(User, id: user_id, company_id: company_id)
+  def get_permissions_by_user_uuid(user_uuid, company_id) do
+    case Repo.get_by(User, uuid: user_uuid) do
+      nil -> {:error, :user_not_found}
+      user -> {:ok, load_permissions(user.id, company_id)}
+    end
+  end
+
+  defp load_permissions(user_id, company_id) do
+    from(p in Ironiauth.Management.Permission,
+      join: gp in Ironiauth.Management.GroupPermission, on: gp.permission_id == p.id,
+      join: g in Ironiauth.Management.Group, on: gp.group_id == g.id,
+      join: ug in Ironiauth.Accounts.UserGroup, on: ug.group_id == g.id,
+      where: ug.user_id == ^user_id and g.company_id == ^company_id,
+      select: p.name,
+      distinct: true)
+    |> Repo.all()
   end
 
   defp email_password_auth(email, password) when is_binary(email) and is_binary(password) do

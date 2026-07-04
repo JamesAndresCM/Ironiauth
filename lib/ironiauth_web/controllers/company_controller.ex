@@ -3,11 +3,11 @@ defmodule IroniauthWeb.CompanyController do
 
   alias Ironiauth.Management
   alias Ironiauth.Management.Company
-  alias IroniauthWeb.Plugs.IsAdmin
+  alias IroniauthWeb.Plugs.IsSuperAdmin
   alias Ironiauth.Services.PaginatorService
 
   action_fallback IroniauthWeb.FallbackController
-  plug IsAdmin when action in [:create, :update, :delete]
+  plug IsSuperAdmin
   plug :set_company when action in [:show, :delete, :update]
 
   defp set_company(conn, _params) do
@@ -49,13 +49,13 @@ defmodule IroniauthWeb.CompanyController do
     render(conn, :show, company: conn.assigns.company)
   end
 
-  def update(conn, %{"id" => id, "company" => company_params}) do
+  def update(conn, %{"id" => _id, "company" => company_params}) do
     with {:ok, %Company{} = company} <- Management.update_company(conn.assigns.company, company_params) do
       render(conn, :show, company: company)
     end
   end
 
-  def delete(conn, %{"id" => id}) do
+  def delete(conn, %{"id" => _id}) do
     with {:ok, %Company{}} <- Management.delete_company(conn.assigns.company) do
       send_resp(conn, :no_content, "")
     end
