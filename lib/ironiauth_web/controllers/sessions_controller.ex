@@ -6,8 +6,7 @@ defmodule IroniauthWeb.SessionsController do
 
   def create(conn, %{"user" => user_params}) do
     company = conn.assigns.current_company
-    with {:ok, user}     <- Accounts.create_user(user_params),
-         {:ok, _}        <- Accounts.create_membership(%{user_id: user.id, company_id: company.id}),
+    with {:ok, user}     <- Accounts.create_user_for_company(user_params, company),
          {:ok, _}        <- Accounts.create_user_role(%{user_id: user.id, role_name: :user}),
          {:ok, token, _} <- Guardian.create_token(user, %{
                               company_uuid: company.uuid,

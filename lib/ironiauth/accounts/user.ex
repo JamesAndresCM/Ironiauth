@@ -32,9 +32,8 @@ defmodule Ironiauth.Accounts.User do
     user
     |> cast(attrs, @cast_fields)
     |> validate_required(@required_fields_create)
-    |> validate_format(:email, ~r/@/) 
-    |> validate_length(:password, min: 8) 
-    |> unique_constraint(:email)
+    |> validate_format(:email, ~r/@/)
+    |> validate_length(:password, min: 8)
     |> unique_constraint(:username)
     |> validate_confirmation(:password, on: [:create])
     |> put_password_hash

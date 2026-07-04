@@ -110,24 +110,54 @@ defmodule Ironiauth.Accounts do
     User.changeset(user, attrs)
   end
 
+  # Model B: busca el usuario escopado a la company antes de verificar password.
+  # El mismo email puede existir en distintas companies como usuarios completamente independientes.
   def token_sign_in(email, password, company_uuid) do
-    case email_password_auth(email, password) do
-      {:ok, user} ->
-        query =
-          from m in Membership,
-            join: c in Ironiauth.Management.Company, on: m.company_id == c.id,
-            where: m.user_id == ^user.id and c.uuid == ^company_uuid,
-            select: c
+    query =
+      from u in User,
+        join: m in Membership, on: m.user_id == u.id,
+        join: c in Ironiauth.Management.Company, on: m.company_id == c.id,
+        where: u.email == ^email and c.uuid == ^company_uuid
 
-        case Repo.one(query) do
-          nil -> {:error, :unauthorized}
-          company ->
-            Guardian.create_token(user, %{company_uuid: company.uuid, user_uuid: user.uuid})
-        end
-
-      _ ->
+    case Repo.one(query) do
+      nil ->
+        dummy_checkpw()
         {:error, :unauthorized}
+
+      user ->
+        if checkpw(password, user.password_hash) do
+          Guardian.create_token(user, %{company_uuid: company_uuid, user_uuid: user.uuid})
+        else
+          {:error, :unauthorized}
+        end
     end
+  end
+
+  # Crea un usuario y su membership en la company de forma atómica.
+  # Verifica que el email no exista ya en esa company (Model B: unicidad por company).
+  def create_user_for_company(attrs, company) do
+    email = attrs["email"] || attrs[:email]
+
+    if email_taken_in_company?(email, company.id) do
+      {:error, :email_taken_in_company}
+    else
+      Repo.transaction(fn ->
+        with {:ok, user} <- create_user(attrs),
+             {:ok, _}    <- create_membership(%{user_id: user.id, company_id: company.id}) do
+          user
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+    end
+  end
+
+  defp email_taken_in_company?(email, company_id) do
+    from(u in User,
+      join: m in Membership, on: m.user_id == u.id,
+      where: u.email == ^email and m.company_id == ^company_id
+    )
+    |> Repo.exists?()
   end
 
   def create_membership(attrs \\ %{}) do
@@ -260,26 +290,4 @@ defmodule Ironiauth.Accounts do
     |> Repo.all()
   end
 
-  defp email_password_auth(email, password) when is_binary(email) and is_binary(password) do
-    with {:ok, user} <- get_by_email(email), do: verify_password(password, user)
-  end
-
-  defp get_by_email(email) when is_binary(email) do
-    case Repo.get_by(User, email: email) do
-      nil ->
-        dummy_checkpw()
-        {:error, "Login error."}
-
-      user ->
-        {:ok, user}
-    end
-  end
-
-  defp verify_password(password, %User{} = user) when is_binary(password) do
-    if checkpw(password, user.password_hash) do
-      {:ok, user}
-    else
-      {:error, :invalid_password}
-    end
-  end
 end

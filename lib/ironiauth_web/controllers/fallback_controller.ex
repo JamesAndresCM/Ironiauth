@@ -46,6 +46,12 @@ defmodule IroniauthWeb.FallbackController do
     |> halt()
   end
 
+  def call(conn, {:error, :email_taken_in_company}) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{errors: %{email: ["has already been taken"]}})
+  end
+
   def call(conn, {:error, :user_not_found}) do
     conn
     |> put_status(:not_found)
