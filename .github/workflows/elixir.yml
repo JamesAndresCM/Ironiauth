@@ -53,6 +53,11 @@ jobs:
     - name: Install dependencies
       run: mix deps.get
 
+    - name: Generate RSA key for tests
+      run: |
+        mkdir -p priv/keys
+        openssl genrsa 2048 > priv/keys/private.pem
+
     - name: Compile
       run: mix compile --warnings-as-errors
       env:
@@ -65,11 +70,9 @@ jobs:
       env:
         MIX_ENV: test
         PGHOST: localhost
-        GUARDIAN_RSA_PRIVATE_KEY: ${{ secrets.GUARDIAN_RSA_PRIVATE_KEY }}
 
     - name: Run tests
       run: mix test
       env:
         MIX_ENV: test
         PGHOST: localhost
-        GUARDIAN_RSA_PRIVATE_KEY: ${{ secrets.GUARDIAN_RSA_PRIVATE_KEY }}

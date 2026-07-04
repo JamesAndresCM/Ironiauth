@@ -24,13 +24,16 @@ end
 # En producción setear GUARDIAN_RSA_PRIVATE_KEY con el contenido PEM de la clave privada.
 # En dev/test se lee de priv/keys/private.pem (gitignoreada).
 private_key_pem =
-  System.get_env("GUARDIAN_RSA_PRIVATE_KEY") ||
-    (File.exists?("priv/keys/private.pem") && File.read!("priv/keys/private.pem")) ||
-    raise """
-    Clave RSA privada no encontrada.
-    Generala con: openssl genrsa 2048 > priv/keys/private.pem
-    O setea la variable de entorno GUARDIAN_RSA_PRIVATE_KEY con el contenido PEM.
-    """
+  case System.get_env("GUARDIAN_RSA_PRIVATE_KEY") do
+    pem when is_binary(pem) and byte_size(pem) > 0 -> pem
+    _ ->
+      (File.exists?("priv/keys/private.pem") && File.read!("priv/keys/private.pem")) ||
+        raise """
+        Clave RSA privada no encontrada.
+        Generala con: openssl genrsa 2048 > priv/keys/private.pem
+        O setea la variable de entorno GUARDIAN_RSA_PRIVATE_KEY con el contenido PEM.
+        """
+  end
 
 private_jwk = JOSE.JWK.from_pem(private_key_pem)
 {_, private_jwk_map} = JOSE.JWK.to_map(private_jwk)
