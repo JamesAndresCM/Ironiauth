@@ -141,6 +141,7 @@ defmodule Ironiauth.Accounts do
     if email_taken_in_company?(email, company.id) do
       {:error, :email_taken_in_company}
     else
+      attrs = Map.merge(%{"active" => true}, stringify_keys(attrs))
       Repo.transaction(fn ->
         with {:ok, user} <- create_user(attrs),
              {:ok, _}    <- create_membership(%{user_id: user.id, company_id: company.id}) do
@@ -150,6 +151,10 @@ defmodule Ironiauth.Accounts do
         end
       end)
     end
+  end
+
+  defp stringify_keys(attrs) when is_map(attrs) do
+    Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
   end
 
   defp email_taken_in_company?(email, company_id) do

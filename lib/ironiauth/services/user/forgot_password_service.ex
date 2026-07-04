@@ -1,7 +1,7 @@
 defmodule Ironiauth.Services.User.ForgotPasswordService do
   alias Ironiauth.Accounts
 
-  def call(email, company) do
+  def call(email, company, redirect_uri \\ "") do
     case Accounts.get_by_email_active_in_company(email, company.id) do
       nil ->
         {:ok, :send_passwd_mailer}
@@ -11,7 +11,7 @@ defmodule Ironiauth.Services.User.ForgotPasswordService do
 
         Task.Supervisor.start_child(Ironiauth.AsyncEmailSupervisor, fn ->
           updated_user
-          |> Ironiauth.Mailers.ResetPasswordMailer.password_reset()
+          |> Ironiauth.Mailers.ResetPasswordMailer.password_reset(company.uuid, redirect_uri)
           |> Ironiauth.Mailer.deliver()
         end)
 
