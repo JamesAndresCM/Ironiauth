@@ -25,18 +25,19 @@ defmodule IroniauthWeb.Router do
     get "/jwks.json", JwksController, :index
   end
 
-  # Endpoints sin autenticación
+  # Sin autenticación — reset_password usa el token del email para identificar al user
   scope "/api/v1", IroniauthWeb do
     pipe_through :api
-    post "/forgot_password", PasswordsController, :forgot_password
     put "/reset_password/:token", PasswordsController, :reset_password
   end
 
   # Endpoints que requieren api_key (llamados desde el backend de cada app)
+  # forgot_password necesita api_key para saber a qué company pertenece el email
   scope "/api/v1", IroniauthWeb do
     pipe_through [:api, :api_key_authenticated]
     post "/sign_up", SessionsController, :create
     post "/sign_in", SessionsController, :sign_in
+    post "/forgot_password", PasswordsController, :forgot_password
   end
 
   scope "/api/v1", IroniauthWeb do

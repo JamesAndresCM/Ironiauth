@@ -77,8 +77,8 @@ Los permisos se obtienen frescos vía `GET /api/v1/users/permissions` (autentica
 
 ## Pipelines de autenticación en el router
 
-- **Sin auth (solo `:api`)**: `GET /`, `GET /.well-known/jwks.json`, `forgot_password`, `reset_password`
-- **api_key_authenticated**: `sign_up`, `sign_in` — el backend de la app envía `Authorization: Bearer <api_key>`
+- **Sin auth (solo `:api`)**: `GET /`, `GET /.well-known/jwks.json`, `reset_password` — el token del email identifica al user sin necesidad de contexto de company
+- **api_key_authenticated**: `sign_up`, `sign_in`, `forgot_password` — el backend de la app envía `Authorization: Bearer <api_key>`. `forgot_password` necesita api_key para saber a qué company pertenece el email (Model B: mismo email puede existir en varias companies)
 - **jwt_authenticated**: todos los demás endpoints — `Authorization: Bearer <jwt>`
 
 Cualquier ruta no definida devuelve `{"error": "Not found"}` con status 404 (catch-all al final del router).
@@ -117,6 +117,7 @@ Los seeds crean:
 ## Decisiones de diseño importantes
 
 - **RS256 en lugar de HS512** — firma asimétrica: Ironiauth firma con la clave privada (que solo conoce), las apps verifican con la clave pública del endpoint JWKS. Una app comprometida no puede forjar JWTs para otras companies.
+- **Model B — email único por company, no global** — el mismo email puede existir en distintas companies como usuarios completamente independientes. Un atacante que obtenga credenciales de open_car no puede usarlas en todo_app. `sign_in` y `forgot_password` siempre resuelven el usuario escopado a la company del api_key.
 - **company_uuid nunca viaja desde el browser** — viene del `api_key` que identifica la company en el backend
 - **Permisos fuera del JWT** — el JWT solo lleva identidad. Los permisos se consultan vía `GET /users/permissions` y se cachean en el cliente (ej. 5 min en sesión de Rails). Cambios de grupo son inmediatamente visibles sin esperar expiración del JWT.
 - **Grupos** — un usuario puede pertenecer a N grupos, cada grupo tiene N permisos. Resuelve el problema de eficiencia con muchos usuarios

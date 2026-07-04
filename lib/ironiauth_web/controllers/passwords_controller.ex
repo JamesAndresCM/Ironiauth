@@ -4,7 +4,8 @@ defmodule IroniauthWeb.PasswordsController do
   action_fallback IroniauthWeb.FallbackController
 
   def forgot_password(conn, %{"user" => %{"email" => email}}) do
-    ForgotPasswordService.call(email)
+    company = conn.assigns.current_company
+    ForgotPasswordService.call(email, company)
     conn |> put_status(:ok) |> json(%{message: "If the email exists, a reset link was sent"})
   end
 

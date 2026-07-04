@@ -1,8 +1,8 @@
 defmodule Ironiauth.Services.User.ForgotPasswordService do
   alias Ironiauth.Accounts
 
-  def call(email) do
-    case Accounts.get_by_email_active(email) do
+  def call(email, company) do
+    case Accounts.get_by_email_active_in_company(email, company.id) do
       nil ->
         {:ok, :send_passwd_mailer}
 

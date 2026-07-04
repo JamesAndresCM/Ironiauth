@@ -236,13 +236,15 @@ defmodule Ironiauth.Accounts do
     user_roles.roles |> Enum.map(& &1.name)
   end
 
-  def get_by_email_active(email) when is_binary(email) do
-    case Repo.get_by(User, email: email, active: true) do
-      nil ->
-        nil
+  def get_by_email_active_in_company(email, company_id) when is_binary(email) do
+    query =
+      from u in User,
+        join: m in Membership, on: m.user_id == u.id,
+        where: u.email == ^email and u.active == true and m.company_id == ^company_id
 
-      user ->
-        {:ok, user}
+    case Repo.one(query) do
+      nil -> nil
+      user -> {:ok, user}
     end
   end
 
