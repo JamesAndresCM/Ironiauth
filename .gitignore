@@ -37,3 +37,9 @@ npm-debug.log
 
 /assets/
 .env
+
+# macOS
+.DS_Store
+
+# RSA keys (nunca commitear claves privadas)
+/priv/keys/
