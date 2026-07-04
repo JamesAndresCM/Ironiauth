@@ -3,13 +3,22 @@ defmodule IroniauthWeb.PasswordsController do
   alias Ironiauth.Services.User.{ResetPasswordService, ForgotPasswordService}
   action_fallback IroniauthWeb.FallbackController
 
-  def forgot_password(conn, %{"user" => user_params} = params) do
-    email = Map.get(user_params, "email", "")
+  def forgot_password(conn, %{"user" => %{"email" => email}}) do
     ForgotPasswordService.call(email)
+    conn |> put_status(:ok) |> json(%{message: "If the email exists, a reset link was sent"})
   end
 
   def reset_password(conn, %{"token" => token, "user" => pass_attrs}) do
     service = ResetPasswordService.new(token, pass_attrs)
-    ResetPasswordService.call(service)
+    case ResetPasswordService.call(service) do
+      {:ok, _user} ->
+        conn |> put_status(:ok) |> json(%{message: "Password updated successfully"})
+      {:error, :reset_token_expired} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Reset token has expired"})
+      {:error, :user_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Invalid reset token"})
+      {:error, :password_reset_failed} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Password reset failed"})
+    end
   end
 end

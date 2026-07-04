@@ -34,7 +34,7 @@ defmodule IroniauthWeb.FallbackController do
     |> json(%{error: "Login error"})
   end
 
-  def call(conn, {:ok, user}) do
+  def call(conn, {:ok, _user}) do
     conn
     |> json(%{msg: "Your password has been reset. Sign in below with your new password."})
     |> halt()
