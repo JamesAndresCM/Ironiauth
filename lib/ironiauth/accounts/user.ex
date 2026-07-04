@@ -13,17 +13,18 @@ defmodule Ironiauth.Accounts.User do
     field :uuid, Ecto.UUID
     field :password_reset_token, :string
     field :password_reset_sent_at, :naive_datetime
-    belongs_to :company, Ironiauth.Management.Company
+    has_many :memberships, Ironiauth.Accounts.Membership
+    has_many :companies, through: [:memberships, :company]
     has_many :user_roles, Ironiauth.Accounts.UserRole
-    has_many :user_permissions, Ironiauth.Accounts.UserPermission
-    has_many :permissions, through: [:user_permissions, :permission]
     has_many :roles, through: [:user_roles, :role]
+    has_many :user_groups, Ironiauth.Accounts.UserGroup
+    has_many :groups, through: [:user_groups, :group]
     timestamps()
   end
 
   @required_fields_create ~w(username email password password_confirmation)a
-  @cast_fields ~w(username email password password_confirmation company_id active)a
-  @update_fields ~w(active username company_id password_reset_token password_reset_sent_at)a
+  @cast_fields ~w(username email password password_confirmation active)a
+  @update_fields ~w(active username password_reset_token password_reset_sent_at)a
   @reset_password_fields ~w(password password_confirmation password_reset_token password_reset_sent_at)a
 
   @doc false
@@ -47,6 +48,8 @@ defmodule Ironiauth.Accounts.User do
   def reset_password_changeset(user, attrs \\ %{}) do
     user
     |> cast(attrs, @reset_password_fields)
+    |> validate_required([:password, :password_confirmation])
+    |> validate_length(:password, min: 8)
     |> validate_confirmation(:password)
     |> put_password_hash
   end
