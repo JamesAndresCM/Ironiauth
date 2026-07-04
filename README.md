@@ -1,6 +1,13 @@
 # Ironiauth
 
-IdP (Identity Provider) multi-tenant centralizado construido en Elixir/Phoenix. Permite que múltiples aplicaciones cliente deleguen autenticación y autorización a un único servicio, emitiendo JWTs con permisos embebidos.
+IdP (Identity Provider) multi-tenant centralizado construido en Elixir/Phoenix. Permite que múltiples aplicaciones cliente deleguen autenticación y autorización a un único servicio, emitiendo JWTs firmados con RS256.
+
+Tiene **dos modos de integración**:
+
+| Modo | Quién sirve los formularios | Cuándo usarlo |
+|------|-----------------------------|---------------|
+| **Hosted UI** | Ironiauth | La app redirige el browser a Ironiauth, que devuelve un JWT via redirect. Sin formularios propios. |
+| **API-only** | La app cliente | El backend llama directamente a la API con `api_key`. La app construye sus propios formularios. |
 
 ## Inicio rápido
 
@@ -55,7 +62,7 @@ App A (open_car)          App B (libros)          App N
        (frescos, cacheados 5 min)          (frescos, cacheados 5 min)
 ```
 
-Cada app cliente tiene un `api_key` único que identifica su `company` en Ironiauth. El browser nunca conoce el `api_key` ni el `company_uuid` — viajan solo entre backends.
+Cada app cliente tiene un `api_key` único que identifica su `company` en Ironiauth. El `api_key` nunca sale del backend. En modo Hosted UI, el `company_uuid` viaja como query param en la URL que construye el backend — es un identificador público, no un secreto.
 
 ## Modelo de datos
 
@@ -394,16 +401,91 @@ El `api_key` se genera automáticamente al crear la company.
 
 ## Integración con una app Rails
 
-### 1. Configurar variables
+### Modo Hosted UI (recomendado)
+
+La app cliente no implementa formularios propios. Redirige el browser a Ironiauth y recibe el JWT en un callback.
+
+#### 1. Configurar variables
 
 ```bash
 # .env de tu app Rails
 IRONIAUTH_URL=http://localhost:4000
 IRONIAUTH_API_KEY=<api_key de tu company>
-# No se necesita ningún secreto compartido — la clave pública se obtiene de /.well-known/jwks.json
+IRONIAUTH_COMPANY_UUID=<uuid de tu company>
 ```
 
-### 2. Cliente HTTP
+#### 2. Cliente con helpers de URL
+
+```ruby
+# app/services/ironiauth_client.rb
+class IroniauthClient
+  BASE_URL     = ENV.fetch("IRONIAUTH_URL")
+  API_KEY      = ENV.fetch("IRONIAUTH_API_KEY")
+  COMPANY_UUID = ENV.fetch("IRONIAUTH_COMPANY_UUID")
+
+  def self.hosted_login_url(callback_url:)
+    "#{BASE_URL}/login?#{URI.encode_www_form(company_uuid: COMPANY_UUID, redirect_uri: callback_url)}"
+  end
+
+  def self.hosted_register_url(callback_url:)
+    "#{BASE_URL}/register?#{URI.encode_www_form(company_uuid: COMPANY_UUID, redirect_uri: callback_url)}"
+  end
+
+  def self.fetch_user_info(jwt:)
+    get("/api/v1/users/me", jwt: jwt)
+  end
+end
+```
+
+#### 3. SessionsController
+
+```ruby
+class SessionsController < ApplicationController
+  def new
+    return redirect_to root_path if logged_in?
+    redirect_to IroniauthClient.hosted_login_url(callback_url: auth_callback_url), allow_other_host: true
+  end
+
+  def callback
+    jwt = params[:jwt]
+    session[:ironiauth_token] = jwt
+    session.delete(:ironiauth_permissions)
+    user_info = IroniauthClient.fetch_user_info(jwt: jwt)
+    session[:current_user_email] = user_info.dig(:body, "email")
+    # Limpiar el JWT de la URL del browser
+    render html: "<script>window.location.replace('/');</script>".html_safe, layout: false
+  end
+
+  def destroy
+    session.clear
+    redirect_to login_path
+  end
+end
+```
+
+#### 4. Rutas
+
+```ruby
+get    "login",         to: "sessions#new"
+get    "auth/callback", to: "sessions#callback", as: :auth_callback
+delete "logout",        to: "sessions#destroy"
+```
+
+---
+
+### Modo API-only
+
+El backend llama directamente a la API de Ironiauth con el `api_key`. La app construye sus propios formularios.
+
+#### 1. Configurar variables
+
+```bash
+# .env de tu app Rails
+IRONIAUTH_URL=http://localhost:4000
+IRONIAUTH_API_KEY=<api_key de tu company>
+```
+
+#### 2. Cliente HTTP
 
 ```ruby
 # app/services/ironiauth_client.rb
@@ -424,7 +506,7 @@ class IroniauthClient
   def self.post(path, body)
     uri = URI("#{BASE_URL}#{path}")
     req = Net::HTTP::Post.new(uri.path, {
-      "Content-Type" => "application/json",
+      "Content-Type"  => "application/json",
       "Authorization" => "Bearer #{API_KEY}"
     })
     req.body = body.to_json
@@ -434,27 +516,27 @@ class IroniauthClient
 end
 ```
 
-### 3. Validar JWT y permisos
+---
+
+### Validar JWT y permisos (ambos modos)
 
 La clave pública RSA se obtiene automáticamente desde `/.well-known/jwks.json`. No hay secreto compartido.
 
 ```ruby
-# app/services/ironiauth_client.rb (fragmento)
 def self.rsa_public_key
   @rsa_public_key ||= begin
-    uri = URI("#{BASE_URL}/.well-known/jwks.json")
+    uri  = URI("#{BASE_URL}/.well-known/jwks.json")
     jwks = JSON.parse(Net::HTTP.get(uri))
     JWT::JWK.import(jwks["keys"].first).public_key
   end
 end
 
-# app/controllers/concerns/authenticatable.rb (fragmento clave)
+# app/controllers/concerns/authenticatable.rb
 def current_claims
   token = session[:ironiauth_token]
   return nil unless token
 
-  public_key = IroniauthClient.rsa_public_key
-  payload, _ = JWT.decode(token, public_key, true, algorithms: ["RS256"])
+  payload, _ = JWT.decode(token, IroniauthClient.rsa_public_key, true, algorithms: ["RS256"])
   payload
 rescue JWT::ExpiredSignature
   session.delete(:ironiauth_token)
@@ -464,18 +546,16 @@ rescue JWT::DecodeError
 end
 ```
 
-### 4. Proteger acciones
+### Proteger acciones y condicionar vistas
 
 ```ruby
 class CarsController < ApplicationController
-  before_action :authenticate!, only: %i[new create edit update destroy]
+  before_action :authenticate!
   before_action -> { require_permission!("car#create") }, only: %i[new create]
   before_action -> { require_permission!("car#update") }, only: %i[edit update]
   before_action -> { require_permission!("car#destroy") }, only: %i[destroy]
 end
 ```
-
-### 5. Condicionar vistas
 
 ```erb
 <% if can?("car#update") %>
