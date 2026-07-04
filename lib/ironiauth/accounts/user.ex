@@ -23,7 +23,7 @@ defmodule Ironiauth.Accounts.User do
   end
 
   @required_fields_create ~w(username email password password_confirmation)a
-  @cast_fields ~w(username email password password_confirmation active)a
+  @cast_fields ~w(username email password password_confirmation active uuid)a
   @update_fields ~w(active username password_reset_token password_reset_sent_at)a
   @reset_password_fields ~w(password password_confirmation password_reset_token password_reset_sent_at)a
 
@@ -37,6 +37,7 @@ defmodule Ironiauth.Accounts.User do
     |> unique_constraint(:username)
     |> validate_confirmation(:password, on: [:create])
     |> put_password_hash
+    |> put_uuid()
   end
 
   def update_changeset(user, attrs \\ %{}) do
@@ -53,6 +54,11 @@ defmodule Ironiauth.Accounts.User do
     |> put_password_hash
   end
 
+
+  defp put_uuid(%Ecto.Changeset{data: %{uuid: nil}} = changeset) do
+    put_change(changeset, :uuid, Ecto.UUID.generate())
+  end
+  defp put_uuid(changeset), do: changeset
 
   defp put_password_hash(changeset) do
     case changeset do

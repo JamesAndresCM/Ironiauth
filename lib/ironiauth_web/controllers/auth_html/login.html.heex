@@ -1,0 +1,34 @@
+<div class="card">
+  <div class="logo">
+    <h1>Ironiauth</h1>
+    <p>Sign in to <strong><%= @company.name %></strong></p>
+  </div>
+
+  <%= if @error do %>
+    <div class="alert-error"><%= @error %></div>
+  <% end %>
+
+  <form method="post" action={~p"/login"}>
+    <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+    <input type="hidden" name="company_uuid" value={@company.uuid} />
+    <input type="hidden" name="redirect_uri" value={@redirect_uri} />
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" value={@email} required autofocus />
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required />
+    </div>
+
+    <button type="submit" class="btn">Sign in</button>
+  </form>
+
+  <div class="links">
+    <a href={~p"/forgot-password?company_uuid=#{@company.uuid}&redirect_uri=#{@redirect_uri}"}>Forgot password?</a>
+    <span class="divider">·</span>
+    <a href={~p"/register?company_uuid=#{@company.uuid}&redirect_uri=#{@redirect_uri}"}>Create account</a>
+  </div>
+</div>

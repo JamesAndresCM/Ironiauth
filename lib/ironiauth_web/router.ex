@@ -5,6 +5,28 @@ defmodule IroniauthWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :put_root_layout, html: {IroniauthWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  # Hosted UI — login/register/forgot-password served por Ironiauth
+  # La app cliente redirige a estas URLs con company_uuid y redirect_uri
+  scope "/", IroniauthWeb do
+    pipe_through :browser
+    get "/login", AuthController, :login
+    post "/login", AuthController, :do_login
+    get "/register", AuthController, :register
+    post "/register", AuthController, :do_register
+    get "/forgot-password", AuthController, :forgot_password
+    post "/forgot-password", AuthController, :do_forgot_password
+    get "/reset-password", AuthController, :reset_password_form
+    post "/reset-password", AuthController, :do_reset_password
+  end
+
   scope "/", IroniauthWeb do
     pipe_through :api
     get "/", RootController, :index
@@ -66,19 +88,8 @@ defmodule IroniauthWeb.Router do
   end
 
 
-  # Catch-all — debe ir al final, después de todas las rutas definidas
-  scope "/", IroniauthWeb do
-    pipe_through :api
-    match :*, "/*path", RootController, :not_found
-  end
-
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:ironiauth, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
@@ -87,5 +98,11 @@ defmodule IroniauthWeb.Router do
       live_dashboard "/dashboard", metrics: IroniauthWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  # Catch-all — debe ir al final de todo
+  scope "/", IroniauthWeb do
+    pipe_through :api
+    match :*, "/*path", RootController, :not_found
   end
 end

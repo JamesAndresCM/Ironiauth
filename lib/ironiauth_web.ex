@@ -19,6 +19,15 @@ defmodule IroniauthWeb do
 
   def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
 
+  def html do
+    quote do
+      use Phoenix.Component
+      import Phoenix.HTML
+      import IroniauthWeb.Gettext
+      unquote(verified_routes())
+    end
+  end
+
   def router do
     quote do
       use Phoenix.Router, helpers: false

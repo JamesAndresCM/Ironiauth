@@ -174,7 +174,9 @@ end
 <% end %>
 ```
 
-## Registro e inicio de sesión
+## Opción A — Flujo API (login desde tu propia UI)
+
+El backend de Rails llama directamente a Ironiauth con el api_key.
 
 ```ruby
 # SessionsController
@@ -196,3 +198,116 @@ def destroy
   redirect_to login_path
 end
 ```
+
+---
+
+## Opción B — Hosted UI (login delegado a Ironiauth)
+
+Ironiauth sirve las páginas de login, registro y recuperación de contraseña. Rails redirige al usuario a Ironiauth, el usuario se autentica, e Ironiauth devuelve el browser a Rails con un JWT en la query string.
+
+### Variables de entorno adicionales
+
+```bash
+IRONIAUTH_COMPANY_UUID=<uuid público de tu company>  # visible en el JWT, no es secreto
+IRONIAUTH_CALLBACK_URL=https://tu-rails-app.com/auth/callback
+```
+
+> `IRONIAUTH_COMPANY_UUID` es el `uuid` de tu Company en Ironiauth (campo público,
+> aparece en el JWT). Distinto de `IRONIAUTH_API_KEY` que es el secreto del backend.
+
+### Rutas
+
+```ruby
+# config/routes.rb
+get  "/auth/callback", to: "sessions#callback"
+get  "/auth/login",    to: "sessions#redirect_to_ironiauth"
+delete "/logout",      to: "sessions#destroy"
+```
+
+### SessionsController — acciones Hosted UI
+
+```ruby
+IRONIAUTH_URL          = ENV.fetch("IRONIAUTH_URL")
+IRONIAUTH_COMPANY_UUID = ENV.fetch("IRONIAUTH_COMPANY_UUID")
+IRONIAUTH_CALLBACK_URL = ENV.fetch("IRONIAUTH_CALLBACK_URL")
+
+# GET /auth/login  →  redirige al Hosted UI de Ironiauth
+def redirect_to_ironiauth
+  params = {
+    company_uuid: IRONIAUTH_COMPANY_UUID,
+    redirect_uri: IRONIAUTH_CALLBACK_URL
+  }
+  redirect_to "#{IRONIAUTH_URL}/login?#{params.to_query}", allow_other_host: true
+end
+
+# GET /auth/callback?jwt=<token>  →  captura el JWT y crea sesión
+#
+# Usamos window.location.replace en vez de redirect_to para que la URL
+# con ?jwt= NUNCA quede en el historial del browser.
+def callback
+  jwt = params[:jwt]
+
+  if jwt.blank?
+    redirect_to auth_login_path, alert: "Autenticación fallida"
+    return
+  end
+
+  session[:ironiauth_token] = jwt
+  session.delete(:ironiauth_permissions)
+  session.delete(:permissions_cached_at)
+
+  # Renderizar una página mínima que usa location.replace para
+  # eliminar la URL del historial antes de redirigir a root.
+  render html: <<~HTML.html_safe, layout: false
+    <!DOCTYPE html><html><head>
+    <script>window.location.replace('/');</script>
+    </head><body>Redirigiendo...</body></html>
+  HTML
+end
+
+# DELETE /logout
+def destroy
+  session.delete(:ironiauth_token)
+  session.delete(:ironiauth_permissions)
+  session.delete(:permissions_cached_at)
+  redirect_to auth_login_path
+end
+```
+
+### Flujo completo
+
+```
+Browser                    Rails                      Ironiauth
+  │                          │                            │
+  │  GET /auth/login         │                            │
+  │─────────────────────────>│                            │
+  │                          │  redirect 302              │
+  │<─────────────────────────│  Location: /login?...      │
+  │                                                       │
+  │  GET /login?company_uuid=X&redirect_uri=Y             │
+  │──────────────────────────────────────────────────────>│
+  │                                                       │  muestra form
+  │<──────────────────────────────────────────────────────│
+  │  POST /login (email + password)                       │
+  │──────────────────────────────────────────────────────>│
+  │                                                       │  autentica
+  │  redirect 302                                         │
+  │<──────────────────────────────────────────────────────│
+  │  Location: <redirect_uri>?jwt=<token>                 │
+  │                          │                            │
+  │  GET /auth/callback?jwt=X│                            │
+  │─────────────────────────>│                            │
+  │                          │  session[:ironiauth_token] │
+  │  redirect → /            │                            │
+  │<─────────────────────────│                            │
+```
+
+### Seguridad del redirect
+
+El JWT viaja en la query string, que puede quedar en logs del servidor y en el
+`Referer` header. Mitigaciones recomendadas:
+
+1. **Eliminar el param de la URL inmediatamente** — en el callback, tras guardar
+   en sesión hacer `redirect_to root_path` (sin el jwt en la URL).
+2. El `redirect_uri` debe ser `https` en producción.
+3. Los JWTs tienen TTL corto (10 min para usuarios normales).
