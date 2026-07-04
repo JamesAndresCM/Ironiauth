@@ -20,6 +20,29 @@ if System.get_env("PHX_SERVER") do
   config :ironiauth, IroniauthWeb.Endpoint, server: true
 end
 
+# Clave RSA para Guardian (RS256) — aplica a todos los entornos.
+# En producción setear GUARDIAN_RSA_PRIVATE_KEY con el contenido PEM de la clave privada.
+# En dev/test se lee de priv/keys/private.pem (gitignoreada).
+private_key_pem =
+  System.get_env("GUARDIAN_RSA_PRIVATE_KEY") ||
+    (File.exists?("priv/keys/private.pem") && File.read!("priv/keys/private.pem")) ||
+    raise """
+    Clave RSA privada no encontrada.
+    Generala con: openssl genrsa 2048 > priv/keys/private.pem
+    O setea la variable de entorno GUARDIAN_RSA_PRIVATE_KEY con el contenido PEM.
+    """
+
+private_jwk = JOSE.JWK.from_pem(private_key_pem)
+{_, private_jwk_map} = JOSE.JWK.to_map(private_jwk)
+public_jwk = JOSE.JWK.to_public(private_jwk)
+{_, public_jwk_map} = JOSE.JWK.to_map(public_jwk)
+
+config :ironiauth, Ironiauth.Guardian,
+  allowed_algos: ["RS256"],
+  secret_key: private_jwk_map
+
+config :ironiauth, :jwks_public_key, public_jwk_map
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

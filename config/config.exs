@@ -42,9 +42,8 @@ config :esbuild,
 # Configure Guardian
 config :ironiauth, Ironiauth.Guardian,
   issuer: "ironiauth",
-  allowed_algos: ["HS512"],
-  verify_issuer: true,
-  secret_key: "ISbEpnO29A8IzvP1Dm4lx9xuZCl/4UQHPi2IyHNkN4k1CnWgqPcPGOd4p9NKCrOI"
+  allowed_algos: ["RS256"],
+  verify_issuer: true
 
 # Configure tailwind (the version is required)
 config :tailwind,
