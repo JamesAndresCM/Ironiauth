@@ -3,6 +3,8 @@ defmodule Ironiauth.Repo do
     otp_app: :ironiauth,
     adapter: Ecto.Adapters.Postgres
 
+  use Scrivener, page_size: 10
+
 
   @doc """
   Returns total of rows.
