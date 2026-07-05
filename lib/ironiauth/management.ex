@@ -86,7 +86,50 @@ defmodule Ironiauth.Management do
     |> Repo.all()
   end
 
+  def list_groups_preloaded(company_id) do
+    from(g in Group, where: g.company_id == ^company_id)
+    |> Repo.all()
+    |> Repo.preload([:permissions, :users])
+  end
+
+  def list_groups_paginated(company_id, page) do
+    from(g in Group, where: g.company_id == ^company_id, order_by: g.name)
+    |> Repo.paginate(page: page)
+    |> Map.update!(:entries, &Repo.preload(&1, [:permissions, :users]))
+  end
+
   def get_group!(id), do: Repo.get!(Group, id)
+
+  def get_group_preloaded!(id) do
+    Repo.get!(Group, id)
+    |> Repo.preload([:permissions, :users])
+  end
+
+  def list_permissions(company_id) do
+    from(p in Permission, where: p.company_id == ^company_id)
+    |> Repo.all()
+  end
+
+  def list_permissions_paginated(company_id, page) do
+    from(p in Permission, where: p.company_id == ^company_id, order_by: p.name)
+    |> Repo.paginate(page: page)
+  end
+
+  def company_stats(company_id) do
+    user_count =
+      from(m in Ironiauth.Accounts.Membership, where: m.company_id == ^company_id)
+      |> Repo.aggregate(:count)
+
+    group_count =
+      from(g in Group, where: g.company_id == ^company_id)
+      |> Repo.aggregate(:count)
+
+    permission_count =
+      from(p in Permission, where: p.company_id == ^company_id)
+      |> Repo.aggregate(:count)
+
+    %{users: user_count, groups: group_count, permissions: permission_count}
+  end
 
   def create_group(attrs \\ %{}) do
     %Group{}

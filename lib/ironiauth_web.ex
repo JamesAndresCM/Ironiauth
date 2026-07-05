@@ -38,6 +38,23 @@ defmodule IroniauthWeb do
     end
   end
 
+  def live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {IroniauthWeb.Layouts, :manage_app}
+
+      unquote(verified_routes())
+    end
+  end
+
+  def live_component do
+    quote do
+      use Phoenix.LiveComponent
+
+      unquote(verified_routes())
+    end
+  end
+
   def channel do
     quote do
       use Phoenix.Channel

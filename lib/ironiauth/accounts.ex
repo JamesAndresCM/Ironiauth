@@ -29,6 +29,26 @@ defmodule Ironiauth.Accounts do
       where: c.uuid == ^company_uuid
   end
 
+  def list_users_for_company(company_id) do
+    from(u in User,
+      join: m in Membership, on: m.user_id == u.id,
+      where: m.company_id == ^company_id,
+      order_by: u.email
+    )
+    |> Repo.all()
+    |> Repo.preload(:user_groups)
+  end
+
+  def list_users_for_company_paginated(company_id, page) do
+    from(u in User,
+      join: m in Membership, on: m.user_id == u.id,
+      where: m.company_id == ^company_id,
+      order_by: u.email
+    )
+    |> Repo.paginate(page: page)
+    |> Map.update!(:entries, &Repo.preload(&1, user_groups: :group))
+  end
+
   @doc """
   Gets a single user.
 

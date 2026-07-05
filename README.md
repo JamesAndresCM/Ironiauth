@@ -9,6 +9,8 @@ Tiene **dos modos de integración**:
 | **Hosted UI** | Ironiauth | La app redirige el browser a Ironiauth, que devuelve un JWT via redirect. Sin formularios propios. |
 | **API-only** | La app cliente | El backend llama directamente a la API con `api_key`. La app construye sus propios formularios. |
 
+Además incluye un **Company Admin Panel** (`/manage`) donde los admins de cada company gestionan grupos, permisos y usuarios sin salir del browser.
+
 ## Inicio rápido
 
 ```bash
@@ -80,6 +82,31 @@ Algoritmo **RS256**. Contiene solo identidad — los permisos se consultan por s
 ```
 
 La clave pública RSA se expone en `GET /.well-known/jwks.json`. Las apps cliente la usan para validar JWTs localmente sin secreto compartido.
+
+## Company Admin Panel
+
+Los admins de una company acceden al panel desde la app cliente (ej. open_car tiene un botón "Admin Panel"). El flujo es idéntico al Hosted UI login:
+
+```
+App cliente → GET /manage?company_uuid=<uuid>&redirect_uri=<callback>
+```
+
+Si el usuario ya tiene sesión activa del Hosted UI, entra directamente al dashboard. Si no, es redirigido al `/login` de Ironiauth con `redirect_uri` apuntando de vuelta a `/manage`.
+
+### Secciones
+
+| Ruta | Descripción |
+|------|-------------|
+| `/manage/dashboard` | Stats de usuarios, grupos y permisos |
+| `/manage/groups` | Crear/eliminar grupos; asignar permisos y usuarios |
+| `/manage/permissions` | Crear/eliminar permisos (`recurso#accion`) |
+| `/manage/users` | Listar usuarios con sus grupos |
+
+Todas las listas tienen paginación a nivel DB (10 por página, via `scrivener_ecto`).
+
+### Single sign-out
+
+Al cerrar sesión en la app cliente, el browser pasa por `GET /manage/logout?redirect_uri=<login>` antes de volver al login. Esto limpia la sesión Phoenix del panel para que no quede accesible.
 
 ## Seguridad
 
