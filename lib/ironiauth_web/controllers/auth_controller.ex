@@ -26,7 +26,11 @@ defmodule IroniauthWeb.AuthController do
   def do_login(conn, %{"company_uuid" => company_uuid, "redirect_uri" => redirect_uri, "email" => email, "password" => password}) do
     case Accounts.token_sign_in(email, password, company_uuid) do
       {:ok, token, _claims} ->
-        redirect(conn, external: append_jwt(redirect_uri, token))
+        # Guarda el JWT en sesión para que /manage lo reutilice sin pedir login de nuevo
+        conn
+        |> put_session(:manage_jwt, token)
+        |> put_session(:manage_company_uuid, company_uuid)
+        |> redirect(external: append_jwt(redirect_uri, token))
 
       _ ->
         {:ok, company} = Management.get_company_by_uuid(company_uuid)

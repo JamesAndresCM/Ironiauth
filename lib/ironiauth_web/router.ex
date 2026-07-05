@@ -1,5 +1,6 @@
 defmodule IroniauthWeb.Router do
   use IroniauthWeb, :router
+  import Phoenix.LiveView.Router
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -11,6 +12,37 @@ defmodule IroniauthWeb.Router do
     plug :put_root_layout, html: {IroniauthWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+  end
+
+  pipeline :manage_browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :put_root_layout, html: {IroniauthWeb.Layouts, :manage_root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  # Company Admin Panel — panel de administración para admins de cada company
+  # La app cliente redirige a /manage?company_uuid=<uuid>&redirect_uri=<callback>
+  scope "/manage", IroniauthWeb do
+    pipe_through :manage_browser
+    get  "/",        ManageController, :enter
+    get  "/logout",  ManageController, :logout
+    post "/logout",  ManageController, :logout
+  end
+
+  scope "/manage", IroniauthWeb do
+    pipe_through :manage_browser
+
+    live_session :manage,
+      on_mount: [{IroniauthWeb.ManageLiveAuth, :default}],
+      layout: {IroniauthWeb.Layouts, :manage_app} do
+      live "/dashboard",        ManageLive.Dashboard, :dashboard
+      live "/groups",           ManageLive.Groups, :groups
+      live "/groups/:id",       ManageLive.GroupDetail, :group_detail
+      live "/permissions",      ManageLive.Permissions, :permissions
+      live "/users",            ManageLive.Users, :users
+    end
   end
 
   # Hosted UI — login/register/forgot-password served por Ironiauth

@@ -1,0 +1,55 @@
+<div class="m-layout">
+  <aside class="m-sidebar">
+    <div class="m-brand">
+      Ironiauth
+      <small>Admin Panel · <%= @manage_company.name %></small>
+    </div>
+    <nav class="m-nav">
+      <.link navigate={~p"/manage"} class={if @live_action == :dashboard, do: "active"}>
+        <span class="m-nav-icon">📊</span> Dashboard
+      </.link>
+      <.link navigate={~p"/manage/groups"} class={if @live_action in [:groups, :group_detail], do: "active"}>
+        <span class="m-nav-icon">👥</span> Groups
+      </.link>
+      <.link navigate={~p"/manage/permissions"} class={if @live_action == :permissions, do: "active"}>
+        <span class="m-nav-icon">🔑</span> Permissions
+      </.link>
+      <.link navigate={~p"/manage/users"} class={if @live_action == :users, do: "active"}>
+        <span class="m-nav-icon">👤</span> Users
+      </.link>
+    </nav>
+    <div class="m-sidebar-footer">
+      <form action={~p"/manage/logout"} method="post">
+        <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+        <button type="submit" class="m-btn m-btn-ghost m-btn-sm" style="width:100%;justify-content:center">
+          Sign out
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="m-body">
+    <header class="m-topbar">
+      <div>
+        <div class="m-topbar-company"><%= @manage_company.name %></div>
+        <div class="m-topbar-user"><%= @manage_user.email %></div>
+      </div>
+      <div class="m-topbar-actions">
+        <%= if @manage_redirect_uri != "" do %>
+          <a href={@manage_redirect_uri} class="m-btn m-btn-ghost m-btn-sm">← Back to app</a>
+        <% end %>
+      </div>
+    </header>
+
+    <main class="m-content">
+      <%= if flash_msg = Phoenix.Flash.get(@flash, :error) do %>
+        <div class="m-alert-error"><%= flash_msg %></div>
+      <% end %>
+      <%= if flash_msg = Phoenix.Flash.get(@flash, :info) do %>
+        <div class="m-alert-success"><%= flash_msg %></div>
+      <% end %>
+
+      <%= @inner_content %>
+    </main>
+  </div>
+</div>
